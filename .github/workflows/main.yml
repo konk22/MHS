@@ -151,17 +151,20 @@ jobs:
             echo "No release directory found"
           fi
 
+      - name: Check what files exist before upload
+        shell: bash
+        run: |
+          echo "Checking for files to upload:"
+          for pattern in "*.exe" "*.msi" "*.dmg" "*.AppImage" "*.deb" "*.app"; do
+            echo "Pattern: $pattern"
+            find src-tauri/target/${{ matrix.target }}/release/bundle/ -name "$pattern" 2>/dev/null || echo "No files found for $pattern"
+          done
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: moonraker-host-scanner-${{ matrix.platform }}
-          path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/*.exe
-            src-tauri/target/${{ matrix.target }}/release/bundle/*.msi
-            src-tauri/target/${{ matrix.target }}/release/bundle/*.dmg
-            src-tauri/target/${{ matrix.target }}/release/bundle/*.AppImage
-            src-tauri/target/${{ matrix.target }}/release/bundle/*.deb
-            src-tauri/target/${{ matrix.target }}/release/bundle/*.app
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/
           retention-days: 30
 
   release:
@@ -180,12 +183,19 @@ jobs:
         shell: bash
         run: |
           echo "Current directory: $(pwd)"
-          echo "Downloaded artifacts:"
-          find . -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \) | head -20
           echo "All files in current directory:"
           ls -la
           echo "Files in subdirectories:"
           find . -type f | head -20
+          echo "Looking for specific artifact directories:"
+          ls -la | grep moonraker || echo "No moonraker directories found"
+          echo "Checking each platform directory:"
+          for dir in moonraker-host-scanner-*; do
+            if [ -d "$dir" ]; then
+              echo "Directory: $dir"
+              ls -la "$dir"
+            fi
+          done
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -195,13 +205,9 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            moonraker-host-scanner-windows/*.exe
-            moonraker-host-scanner-windows/*.msi
-            moonraker-host-scanner-macos-intel/*.dmg
-            moonraker-host-scanner-macos-intel/*.app
-            moonraker-host-scanner-macos-arm/*.dmg
-            moonraker-host-scanner-macos-arm/*.app
-            moonraker-host-scanner-linux/*.AppImage
-            moonraker-host-scanner-linux/*.deb
+            moonraker-host-scanner-windows/**/*
+            moonraker-host-scanner-macos-intel/**/*
+            moonraker-host-scanner-macos-arm/**/*
+            moonraker-host-scanner-linux/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
