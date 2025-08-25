@@ -158,7 +158,7 @@ export const translations: Record<string, Translations> = {
     offline: "Offline",
 
     // About Tab
-    version: "Version 1.0.0",
+    version: "Version 0.0.1",
     powerfulNetworkTool: "A powerful network discovery tool for finding API-enabled hosts",
 
     // Language Tab
@@ -244,7 +244,7 @@ export const translations: Record<string, Translations> = {
     offline: "Оффлайн",
 
     // About Tab
-    version: "Версия 1.0.0",
+    version: "Версия 0.0.1",
     powerfulNetworkTool: "Мощный инструмент для обнаружения сетевых устройств с поддержкой API",
 
     // Language Tab
