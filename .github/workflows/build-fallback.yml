@@ -1,0 +1,77 @@
+name: Build with Fallback
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-fallback:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install Rust targets
+        run: |
+          rustup target add x86_64-unknown-linux-gnu
+          rustup target add x86_64-pc-windows-msvc
+          rustup target add x86_64-apple-darwin
+          rustup target add aarch64-apple-darwin
+
+      - name: Try pnpm first
+        id: pnpm_install
+        run: |
+          npm install -g pnpm@8
+          pnpm install --frozen-lockfile
+        continue-on-error: true
+
+      - name: Try npm ci if pnpm fails
+        if: steps.pnpm_install.outcome == 'failure'
+        id: npm_ci
+        run: npm ci
+        continue-on-error: true
+
+      - name: Try npm install if npm ci fails
+        if: steps.npm_ci.outcome == 'failure'
+        run: npm install
+
+      - name: Build Next.js
+        run: |
+          if command -v pnpm &> /dev/null; then
+            pnpm build
+          else
+            npm run build
+          fi
+
+      - name: Build Tauri application
+        run: |
+          if command -v pnpm &> /dev/null; then
+            pnpm tauri build --target x86_64-unknown-linux-gnu
+          else
+            npm run tauri build -- --target x86_64-unknown-linux-gnu
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-fallback
+          path: src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/
+          retention-days: 30
