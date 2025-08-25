@@ -156,7 +156,7 @@ jobs:
         with:
           merge-multiple: false   # скачает в папки по имени артефактов
 
-      - name: Debug: list all files
+      - name: Debug list all files
         run: find . -type f
 
       - name: Create Release
