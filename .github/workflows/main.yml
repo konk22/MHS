@@ -196,6 +196,13 @@ jobs:
               ls -la "$dir"
             fi
           done
+          echo "Checking if any artifacts were downloaded:"
+          if [ -d "moonraker-host-scanner-windows" ] || [ -d "moonraker-host-scanner-macos-intel" ] || [ -d "moonraker-host-scanner-macos-arm" ] || [ -d "moonraker-host-scanner-linux" ]; then
+            echo "Artifact directories found"
+          else
+            echo "No artifact directories found - this means build jobs failed or artifacts weren't uploaded"
+            exit 1
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -209,5 +216,6 @@ jobs:
             moonraker-host-scanner-macos-intel/**/*
             moonraker-host-scanner-macos-arm/**/*
             moonraker-host-scanner-linux/**/*
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
