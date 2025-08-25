@@ -38,10 +38,12 @@ jobs:
 
       - name: Install Rust targets
         run: |
-          rustup target add x86_64-unknown-linux-gnu
-          rustup target add x86_64-pc-windows-msvc
-          rustup target add x86_64-apple-darwin
-          rustup target add aarch64-apple-darwin
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            rustup target add x86_64-pc-windows-msvc
+          elif [[ "${{ matrix.target }}" == *"apple-darwin"* ]]; then
+            rustup target add x86_64-apple-darwin
+            rustup target add aarch64-apple-darwin
+          fi
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
@@ -70,15 +72,15 @@ jobs:
       - name: Build Next.js
         run: pnpm build
 
-      - name: Build Tauri application
-        run: |
-          if [[ "${{ matrix.target }}" == *"apple-darwin"* ]]; then
-            # For macOS, build only the app bundle, not DMG
-            pnpm tauri build --target ${{ matrix.target }} --config src-tauri/tauri.conf.json
-          else
-            # For other platforms, build normally
-            pnpm tauri build --target ${{ matrix.target }}
-          fi
+      - name: Build Tauri application (Windows)
+        if: matrix.os == 'windows-latest'
+        run: pnpm tauri build --target ${{ matrix.target }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Tauri application (macOS)
+        if: matrix.os == 'macos-latest'
+        run: pnpm tauri build --target ${{ matrix.target }} --config src-tauri/tauri.conf.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -108,8 +110,7 @@ jobs:
           override: true
 
       - name: Install Rust targets
-        run: |
-          rustup target add x86_64-unknown-linux-gnu
+        run: rustup target add x86_64-unknown-linux-gnu
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
