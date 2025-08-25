@@ -132,34 +132,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: List build artifacts
-        shell: bash
-        run: |
-          echo "Build artifacts for ${{ matrix.platform }}:"
-          if [ -d "src-tauri/target/${{ matrix.target }}/release/bundle/" ]; then
-            echo "Bundle directory contents:"
-            ls -la src-tauri/target/${{ matrix.target }}/release/bundle/
-            echo "All files in bundle:"
-            find src-tauri/target/${{ matrix.target }}/release/bundle/ -type f
-          else
-            echo "No bundle directory found"
-          fi
-          echo "Target directory contents:"
-          if [ -d "src-tauri/target/${{ matrix.target }}/release/" ]; then
-            ls -la src-tauri/target/${{ matrix.target }}/release/
-          else
-            echo "No release directory found"
-          fi
-
-      - name: Check what files exist before upload
-        shell: bash
-        run: |
-          echo "Checking for files to upload:"
-          for pattern in "*.exe" "*.msi" "*.dmg" "*.AppImage" "*.deb" "*.app"; do
-            echo "Pattern: $pattern"
-            find src-tauri/target/${{ matrix.target }}/release/bundle/ -name "$pattern" 2>/dev/null || echo "No files found for $pattern"
-          done
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -176,33 +148,16 @@ jobs:
     needs: build
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          merge-multiple: false   # скачает в папки по имени артефактов
 
-      - name: List downloaded files
-        shell: bash
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "All files in current directory:"
-          ls -la
-          echo "Files in subdirectories:"
-          find . -type f | head -20
-          echo "Looking for specific artifact directories:"
-          ls -la | grep moonraker || echo "No moonraker directories found"
-          echo "Checking each platform directory:"
-          for dir in moonraker-host-scanner-*; do
-            if [ -d "$dir" ]; then
-              echo "Directory: $dir"
-              ls -la "$dir"
-            fi
-          done
-          echo "Checking if any artifacts were downloaded:"
-          if [ -d "moonraker-host-scanner-windows" ] || [ -d "moonraker-host-scanner-macos-intel" ] || [ -d "moonraker-host-scanner-macos-arm" ] || [ -d "moonraker-host-scanner-linux" ]; then
-            echo "Artifact directories found"
-          else
-            echo "No artifact directories found - this means build jobs failed or artifacts weren't uploaded"
-            exit 1
-          fi
+      - name: Debug: list all files
+        run: find . -type f
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -212,10 +167,14 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            moonraker-host-scanner-windows/**/*
-            moonraker-host-scanner-macos-intel/**/*
-            moonraker-host-scanner-macos-arm/**/*
-            moonraker-host-scanner-linux/**/*
+            moonraker-host-scanner-windows/**/*.exe
+            moonraker-host-scanner-windows/**/*.msi
+            moonraker-host-scanner-macos-intel/**/*.dmg
+            moonraker-host-scanner-macos-arm/**/*.dmg
+            moonraker-host-scanner-linux/**/*.AppImage
+            moonraker-host-scanner-linux/**/*.deb
+            moonraker-host-scanner-*/**/*.zip
+            moonraker-host-scanner-*/**/*.tar.gz
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
