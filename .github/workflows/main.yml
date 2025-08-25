@@ -133,11 +133,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: List build artifacts
+        shell: bash
         run: |
           echo "Build artifacts for ${{ matrix.platform }}:"
-          find src-tauri/target/${{ matrix.target }}/release/bundle/ -type f 2>/dev/null || echo "No bundle directory found"
+          if [ -d "src-tauri/target/${{ matrix.target }}/release/bundle/" ]; then
+            find src-tauri/target/${{ matrix.target }}/release/bundle/ -type f
+          else
+            echo "No bundle directory found"
+          fi
           echo "Target directory contents:"
-          ls -la src-tauri/target/${{ matrix.target }}/release/ 2>/dev/null || echo "No release directory found"
+          if [ -d "src-tauri/target/${{ matrix.target }}/release/" ]; then
+            ls -la src-tauri/target/${{ matrix.target }}/release/
+          else
+            echo "No release directory found"
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -159,10 +168,11 @@ jobs:
         uses: actions/download-artifact@v4
 
       - name: List downloaded files
+        shell: bash
         run: |
           echo "Current directory: $(pwd)"
           echo "Downloaded artifacts:"
-          find . -type f -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" | head -20
+          find . -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \) | head -20
           echo "All files in current directory:"
           ls -la
           echo "Files in subdirectories:"
