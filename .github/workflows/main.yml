@@ -105,11 +105,14 @@ jobs:
           override: true
 
       - name: Install Rust targets
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Install additional Rust targets (Linux only)
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          rustup target add ${{ matrix.target }}
-          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            rustup target add x86_64-pc-windows-msvc x86_64-apple-darwin aarch64-apple-darwin
-          fi
+          rustup target add x86_64-pc-windows-msvc
+          rustup target add x86_64-apple-darwin
+          rustup target add aarch64-apple-darwin
 
       - name: Install system dependencies (Linux only)
         if: matrix.os == 'ubuntu-latest'
