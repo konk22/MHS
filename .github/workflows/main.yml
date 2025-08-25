@@ -132,6 +132,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: List build artifacts
+        run: |
+          echo "Build artifacts for ${{ matrix.platform }}:"
+          find src-tauri/target/${{ matrix.target }}/release/bundle/ -type f 2>/dev/null || echo "No bundle directory found"
+          echo "Target directory contents:"
+          ls -la src-tauri/target/${{ matrix.target }}/release/ 2>/dev/null || echo "No release directory found"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -151,6 +158,16 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
 
+      - name: List downloaded files
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Downloaded artifacts:"
+          find . -type f -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" | head -20
+          echo "All files in current directory:"
+          ls -la
+          echo "Files in subdirectories:"
+          find . -type f | head -20
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -159,10 +176,9 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            **/*.exe
-            **/*.msi
-            **/*.dmg
-            **/*.AppImage
-            **/*.deb
+            moonraker-host-scanner-windows/**/*
+            moonraker-host-scanner-macos-intel/**/*
+            moonraker-host-scanner-macos-arm/**/*
+            moonraker-host-scanner-linux/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
