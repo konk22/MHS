@@ -7,6 +7,7 @@
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
+    "type-check": "tsc --noEmit --skipLibCheck",
     "tauri": "tauri",
     "tauri:dev": "next build && tauri dev",
     "tauri:build": "next build && tauri build",
@@ -14,7 +15,9 @@
     "build:windows": "next build && tauri build --target x86_64-pc-windows-msvc",
     "build:linux": "next build && tauri build --target x86_64-unknown-linux-gnu",
     "build:all": "next build && tauri build --target all",
-    "create-dmg": "./scripts/create-dmg.sh"
+    "test": "echo \"No tests specified\" && exit 0",
+    "clean": "rm -rf .next out src-tauri/target",
+    "clean:all": "rm -rf node_modules .next out src-tauri/target pnpm-lock.yaml && pnpm install"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

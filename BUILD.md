@@ -1,91 +1,127 @@
-# Build Guide
+# Build Guide - Moonraker Host Scanner
 
-This document provides detailed instructions for building the Moonraker Host Scanner application for different platforms.
+📋 **Complete guide for building and deploying Moonraker Host Scanner**
 
-## Prerequisites
+## 🛠️ Prerequisites
 
 ### Required Tools
+- **Node.js** 18.0.0 or higher
+- **pnpm** 8.0.0 or higher
+- **Rust** 1.70.0 or higher (rustc, cargo)
+- **Git** for version control
 
-- **Node.js** 18+ and **pnpm**
-- **Rust** toolchain (latest stable)
-- **Tauri CLI**: `pnpm add -g @tauri-apps/cli`
-
-### Platform-Specific Requirements
-
-#### Windows
-- Visual Studio Build Tools 2019 or later
-- Windows 10/11 SDK
-- WebView2 Runtime
+### Platform-Specific Dependencies
 
 #### macOS
-- Xcode Command Line Tools
-- macOS 10.15+ (for building)
-- Apple Developer Account (for distribution)
-
-#### Linux
-- `build-essential` package
-- `libwebkit2gtk-4.0-dev` and `libgtk-3-dev`
-- `libayatana-appindicator3-dev` (for system tray)
-
-## Development Setup
-
-1. **Clone and install dependencies**:
 ```bash
-git clone https://github.com/yourusername/moonraker-host-scanner.git
-cd moonraker-host-scanner
+# Install Xcode Command Line Tools
+xcode-select --install
+
+# Install Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install pnpm
+npm install -g pnpm
+```
+
+#### Windows
+```bash
+# Install Visual Studio Build Tools
+# Download from: https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022
+
+# Install Rust
+# Download from: https://rustup.rs/
+
+# Install pnpm
+npm install -g pnpm
+```
+
+#### Linux (Ubuntu/Debian)
+```bash
+# Install system dependencies
+sudo apt update
+sudo apt install -y build-essential curl git libssl-dev pkg-config
+
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install Node.js (if not already installed)
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install pnpm
+npm install -g pnpm
+```
+
+## 🚀 Development Setup
+
+### 1. Clone Repository
+```bash
+git clone <repository-url>
+cd MoonrakerHostScanner
+```
+
+### 2. Install Dependencies
+```bash
+# Install Node.js dependencies
 pnpm install
-```
 
-2. **Verify Rust toolchain**:
-```bash
-rustup show
+# Verify Rust toolchain
 cargo --version
+rustc --version
 ```
 
-3. **Test development build**:
+### 3. Development Mode
 ```bash
+# Start development server with hot reload
 pnpm tauri:dev
 ```
 
-## Building for Production
+## 📦 Building for Production
 
-### Single Platform
-
+### Single Platform Build
 ```bash
 # Build for current platform
 pnpm tauri:build
 
 # Build for specific platform
-pnpm tauri build --target x86_64-pc-windows-msvc    # Windows x64
-pnpm tauri build --target x86_64-apple-darwin       # macOS Intel
-pnpm tauri build --target aarch64-apple-darwin      # macOS Apple Silicon
-pnpm tauri build --target x86_64-unknown-linux-gnu  # Linux x64
+pnpm tauri:build --target x86_64-apple-darwin    # macOS Intel
+pnpm tauri:build --target aarch64-apple-darwin   # macOS Apple Silicon
+pnpm tauri:build --target x86_64-pc-windows-msvc # Windows
+pnpm tauri:build --target x86_64-unknown-linux-gnu # Linux
 ```
 
-### All Platforms (Cross-Compilation)
-
+### Multi-Platform Build Scripts
 ```bash
-# Build for all supported platforms
-pnpm tauri build --target all
+# Build for all platforms
+pnpm build:all
+
+# Platform-specific builds
+pnpm build:macos
+pnpm build:windows
+pnpm build:linux
 ```
 
-**Note**: Cross-compilation requires additional setup for each target platform.
+### Build Outputs
+- **macOS**: `.app` bundle in `src-tauri/target/release/bundle/`
+- **Windows**: `.exe` installer in `src-tauri/target/release/bundle/`
+- **Linux**: `.AppImage` and `.deb` in `src-tauri/target/release/bundle/`
 
-## Build Configuration
+## 🔧 Build Configuration
 
 ### Tauri Configuration (`src-tauri/tauri.conf.json`)
-
-Key build settings:
 ```json
 {
   "build": {
-    "frontendDist": "../out",
+    "beforeDevCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build",
+    "devPath": "http://localhost:3000",
     "distDir": "../out"
   },
   "bundle": {
     "active": true,
     "targets": "all",
-    "identifier": "com.tormyhseviv.moonrakerhostscanner",
+    "identifier": "com.moonraker.scanner",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -98,254 +134,247 @@ Key build settings:
 ```
 
 ### Next.js Configuration (`next.config.mjs`)
-
-Static export configuration:
 ```javascript
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
   trailingSlash: true,
-  distDir: 'out',
-  assetPrefix: '/',
   images: {
     unoptimized: true
   }
 }
+
+export default nextConfig
 ```
 
-## Platform-Specific Build Instructions
+## 🎯 Platform-Specific Builds
 
-### Windows
-
-1. **Install Visual Studio Build Tools**:
-   - Download from Microsoft Visual Studio
-   - Install C++ build tools and Windows 10/11 SDK
-
-2. **Install WebView2 Runtime**:
-   - Required for Tauri applications
-   - Download from Microsoft
-
-3. **Build**:
+### macOS Build
 ```bash
-pnpm tauri build --target x86_64-pc-windows-msvc
+# Intel Mac
+pnpm tauri:build --target x86_64-apple-darwin
+
+# Apple Silicon Mac
+pnpm tauri:build --target aarch64-apple-darwin
+
+# Universal Binary (both architectures)
+pnpm tauri:build --target universal-apple-darwin
 ```
 
-**Output**: `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/`
-
-### macOS
-
-1. **Install Xcode Command Line Tools**:
+### Windows Build
 ```bash
-xcode-select --install
+# 64-bit Windows
+pnpm tauri:build --target x86_64-pc-windows-msvc
+
+# 32-bit Windows (if needed)
+pnpm tauri:build --target i686-pc-windows-msvc
 ```
 
-2. **Build for Intel Macs**:
+### Linux Build
 ```bash
-pnpm tauri build --target x86_64-apple-darwin
+# 64-bit Linux
+pnpm tauri:build --target x86_64-unknown-linux-gnu
+
+# ARM64 Linux (if needed)
+pnpm tauri:build --target aarch64-unknown-linux-gnu
 ```
 
-3. **Build for Apple Silicon**:
+## 📱 Creating Installers
+
+### macOS DMG
 ```bash
-pnpm tauri build --target aarch64-apple-darwin
+# After building for macOS
+cd src-tauri/target/release/bundle/dmg
+# DMG file will be created automatically
 ```
 
-4. **Create DMG files** (after building):
+### Windows Installer
 ```bash
-# Create DMG for Apple Silicon
-./scripts/create-dmg.sh aarch64-apple-darwin
-
-# Create DMG for Intel Macs
-./scripts/create-dmg.sh x86_64-apple-darwin
+# After building for Windows
+cd src-tauri/target/release/bundle/msi
+# MSI installer will be created automatically
 ```
 
-5. **Universal Binary** (both architectures):
+### Linux AppImage
 ```bash
-# Build both targets
-pnpm tauri build --target x86_64-apple-darwin
-pnpm tauri build --target aarch64-apple-darwin
-
-# Create universal binary using lipo
-lipo -create \
-  src-tauri/target/x86_64-apple-darwin/release/bundle/macos/moonraker-host-scanner \
-  src-tauri/target/aarch64-apple-darwin/release/bundle/macos/moonraker-host-scanner \
-  -output moonraker-host-scanner-universal
+# After building for Linux
+cd src-tauri/target/release/bundle/appimage
+# AppImage file will be created automatically
 ```
 
-**Output**: 
-- App bundles: `src-tauri/target/*/release/bundle/macos/`
-- DMG files: `src-tauri/target/*/release/bundle/dmg/`
+## 🔍 Troubleshooting
 
-**Note**: DMG creation is done manually using the provided script due to Tauri 2 compatibility issues.
+### Common Build Issues
 
-### Linux
-
-1. **Install dependencies** (Ubuntu/Debian):
+#### Node.js/Pnpm Issues
 ```bash
-sudo apt update
-sudo apt install build-essential libwebkit2gtk-4.0-dev libgtk-3-dev \
-  libayatana-appindicator3-dev librsvg2-dev
+# Clear cache and reinstall
+rm -rf node_modules pnpm-lock.yaml
+pnpm install
+
+# Update pnpm
+npm install -g pnpm@latest
 ```
 
-2. **Build**:
+#### Rust Build Issues
 ```bash
-pnpm tauri build --target x86_64-unknown-linux-gnu
+# Update Rust toolchain
+rustup update
+
+# Clean and rebuild
+cargo clean
+cargo build --release
 ```
 
-**Output**: `src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/`
+#### Tauri Build Issues
+```bash
+# Clear Tauri cache
+rm -rf src-tauri/target
 
-## Continuous Integration
+# Rebuild with verbose output
+pnpm tauri:build --verbose
+```
+
+#### Platform-Specific Issues
+
+**macOS:**
+- Ensure Xcode Command Line Tools are installed
+- Check code signing certificates if needed
+
+**Windows:**
+- Install Visual Studio Build Tools
+- Ensure Windows SDK is installed
+
+**Linux:**
+- Install required system packages
+- Check for missing libraries
+
+### Debug Builds
+```bash
+# Development build with debug info
+pnpm tauri:dev
+
+# Debug production build
+cargo build --debug
+pnpm tauri:build --debug
+```
+
+## 🧪 Testing
+
+### Unit Tests
+```bash
+# Run Rust tests
+cd src-tauri
+cargo test
+
+# Run frontend tests (if configured)
+pnpm test
+```
+
+### Integration Tests
+```bash
+# Test Tauri commands
+pnpm tauri:dev
+# Manually test all features in development mode
+```
+
+### Build Verification
+```bash
+# Verify build artifacts
+ls -la src-tauri/target/release/bundle/
+
+# Test application launch
+./src-tauri/target/release/moonrakerhostscanner
+```
+
+## 📊 Build Performance
+
+### Optimization Tips
+- **Use release builds** for production
+- **Enable parallel compilation** in Cargo.toml
+- **Optimize Next.js build** with proper configuration
+- **Use appropriate target** for your platform
+
+### Build Times (Approximate)
+- **Development build**: 30-60 seconds
+- **Production build**: 2-5 minutes
+- **Multi-platform build**: 10-20 minutes
+
+## 🚀 Deployment
+
+### GitHub Releases
+```bash
+# Tag release
+git tag v0.1.0
+git push origin v0.1.0
+
+# Create GitHub release with build artifacts
+# Upload files from src-tauri/target/release/bundle/
+```
+
+### Distribution
+- **macOS**: Upload `.dmg` file
+- **Windows**: Upload `.msi` installer
+- **Linux**: Upload `.AppImage` and `.deb` packages
+
+## 📋 Build Checklist
+
+### Pre-Build
+- [ ] All dependencies installed
+- [ ] Code compiles without errors
+- [ ] Tests pass
+- [ ] Version numbers updated
+- [ ] Changelog updated
+
+### Build Process
+- [ ] Frontend builds successfully
+- [ ] Rust backend compiles
+- [ ] Tauri bundle created
+- [ ] Platform-specific installers generated
+- [ ] Application launches correctly
+
+### Post-Build
+- [ ] Test application functionality
+- [ ] Verify all features work
+- [ ] Check file sizes are reasonable
+- [ ] Create release notes
+- [ ] Upload to distribution platform
+
+## 🔄 Continuous Integration
 
 ### GitHub Actions Workflow
-
-Create `.github/workflows/build.yml`:
-
 ```yaml
+# .github/workflows/build.yml
 name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        target:
-          - x86_64-unknown-linux-gnu
-          - x86_64-pc-windows-msvc
-          - x86_64-apple-darwin
-          - aarch64-apple-darwin
-
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
-          
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+      - uses: actions/setup-rust@v1
         with:
-          toolchain: stable
-          
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
+          rust-version: '1.70'
+      - run: npm install -g pnpm
+      - run: pnpm install
+      - run: pnpm tauri:build
+      - uses: actions/upload-artifact@v4
         with:
-          version: 8
-          
-      - name: Install dependencies
-        run: pnpm install
-        
-      - name: Build application
-        run: pnpm tauri build --target ${{ matrix.target }}
-        
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: moonraker-host-scanner-${{ matrix.target }}
-          path: src-tauri/target/${{ matrix.target }}/release/bundle/
+          name: ${{ matrix.os }}-build
+          path: src-tauri/target/release/bundle/
 ```
 
-## Distribution
+---
 
-### Windows
-- **MSI Installer**: Generated automatically by Tauri
-- **Portable**: `.exe` file in bundle directory
-- **Code Signing**: Recommended for distribution
-
-### macOS
-- **DMG**: Generated automatically by Tauri
-- **App Bundle**: `.app` file in bundle directory
-- **Notarization**: Required for distribution outside App Store
-
-### Linux
-- **AppImage**: Generated automatically by Tauri
-- **Deb Package**: Can be created using `cargo deb`
-- **RPM Package**: Can be created using `cargo rpm`
-
-## Troubleshooting
-
-### Common Build Issues
-
-1. **Rust toolchain issues**:
-```bash
-rustup update
-rustup default stable
-```
-
-2. **Node.js version conflicts**:
-```bash
-node --version  # Should be 18+
-pnpm --version  # Should be 8+
-```
-
-3. **Tauri CLI issues**:
-```bash
-pnpm remove -g @tauri-apps/cli
-pnpm add -g @tauri-apps/cli@latest
-```
-
-4. **Platform-specific dependencies**:
-   - Windows: Ensure Visual Studio Build Tools are installed
-   - macOS: Ensure Xcode Command Line Tools are installed
-   - Linux: Install required system packages
-
-### Performance Optimization
-
-1. **Enable Rust optimizations**:
-```toml
-# src-tauri/Cargo.toml
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-panic = 'abort'
-```
-
-2. **Optimize Next.js build**:
-```javascript
-// next.config.mjs
-const nextConfig = {
-  output: 'export',
-  trailingSlash: true,
-  distDir: 'out',
-  assetPrefix: '/',
-  images: {
-    unoptimized: true
-  },
-  experimental: {
-    optimizeCss: true
-  }
-}
-```
-
-## Version Management
-
-### Semantic Versioning
-- **Major**: Breaking changes
-- **Minor**: New features
-- **Patch**: Bug fixes
-
-### Release Process
-1. Update version in `package.json` and `src-tauri/Cargo.toml`
-2. Create git tag: `git tag v1.0.0`
-3. Push tag: `git push origin v1.0.0`
-4. GitHub Actions will automatically build and release
-
-## Security Considerations
-
-1. **Code Signing**: Sign all releases for Windows and macOS
-2. **Notarization**: Notarize macOS releases
-3. **Dependency Updates**: Regularly update dependencies
-4. **Security Audits**: Run `pnpm audit` and `cargo audit`
-
-## Support
-
-For build-related issues:
-- Check [Tauri Documentation](https://tauri.app/docs/get-started/setup)
-- Review [GitHub Issues](https://github.com/yourusername/moonraker-host-scanner/issues)
-- Join [Tauri Discord](https://discord.gg/tauri)
+**For more detailed information, see the [Tauri documentation](https://tauri.app/docs/get-started/setup/) and [Next.js documentation](https://nextjs.org/docs).**

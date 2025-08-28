@@ -1,133 +1,216 @@
 # Moonraker Host Scanner
 
-A modern desktop application for discovering and managing Moonraker-enabled 3D printers on your network. Built with Tauri, Next.js, and TypeScript.
+🚀 **Desktop application for scanning and managing Moonraker 3D printer hosts**
 
-## Features
+A modern Tauri-based desktop application that automatically discovers Moonraker-enabled 3D printers on your network, provides real-time status monitoring, and offers direct control over your printers.
 
-- 🔍 **Network Scanning**: Fast discovery of Moonraker hosts on your network
-- 🖨️ **Printer Control**: Start, pause, cancel, and emergency stop print jobs
-- 📹 **Webcam Streaming**: View live webcam feeds with rotation and flip controls
-- 🌐 **Browser Integration**: Open printer web interfaces directly
-- 🔧 **SSH Access**: Quick terminal access to printer hosts
-- 💾 **Settings Persistence**: Save and restore application settings
-- 🌍 **Multi-language**: English and Russian support
-- 🎨 **Modern UI**: Beautiful, responsive interface with dark/light themes
+## ✨ Features
 
-## Screenshots
+### 🔍 **Network Discovery**
+- **Automatic scanning** of local network subnets
+- **Port-based detection** (port 7125) for efficient discovery
+- **Real-time host detection** with configurable scan intervals
+- **Custom subnet configuration** for targeted scanning
 
-![Main Interface](docs/screenshots/main.png)
-![Webcam Modal](docs/screenshots/webcam.png)
+### 📊 **Printer Monitoring**
+- **Real-time status updates** every second for known hosts
+- **Moonraker API integration** for accurate printer state detection
+- **Status flags support**: printing, paused, cancelling, error, standby, offline
+- **Printer information display**: version, Klippy state, hostname
 
-## Prerequisites
+### 🎮 **Printer Control**
+- **Start/Pause/Stop** print jobs
+- **Emergency stop** functionality
+- **Direct API integration** with Moonraker endpoints
+- **Visual feedback** with button animations
 
+### 🖥️ **Webcam Integration**
+- **Live webcam streaming** in modal windows
+- **Image manipulation**: rotate, flip horizontal/vertical
+- **Direct stream display** (no browser redirection)
+
+### 🔗 **Quick Access**
+- **One-click browser access** to printer web interface
+- **SSH terminal integration** for direct host access
+- **Cross-platform support** (macOS, Windows, Linux)
+
+### 🔔 **Smart Notifications**
+- **System notifications** for status changes
+- **Configurable notification settings** per status type
+- **Multi-language support** for notifications
+
+### 🌍 **Internationalization**
+- **English, Russian, German** language support
+- **Modular translation system** with separate language files
+- **Dynamic language switching**
+
+### ⚙️ **Settings & Persistence**
+- **Custom hostname support** with rename functionality
+- **Persistent settings** across application restarts
+- **Configurable scan intervals** and notification preferences
+- **Local storage** for user preferences
+
+## 🛠️ Technology Stack
+
+- **Frontend**: Next.js 15, React 18, TypeScript
+- **Backend**: Rust, Tauri 2
+- **UI Components**: shadcn/ui, Tailwind CSS
+- **Network**: tokio, reqwest, ipnetwork
+- **Notifications**: notify-rust
+- **Build System**: pnpm, Cargo
+
+## 📦 Installation
+
+### Prerequisites
 - **Node.js** 18+ and **pnpm**
-- **Rust** toolchain (for Tauri)
-- **Moonraker** running on your 3D printers (port 7125)
+- **Rust** toolchain (rustc, cargo)
+- **Platform-specific dependencies** (see BUILD.md)
 
-## Installation
-
-### From Source
-
-1. Clone the repository:
+### Development Setup
 ```bash
-git clone https://github.com/yourusername/moonraker-host-scanner.git
-cd moonraker-host-scanner
-```
+# Clone the repository
+git clone <repository-url>
+cd MoonrakerHostScanner
 
-2. Install dependencies:
-```bash
+# Install dependencies
 pnpm install
-```
 
-3. Run in development mode:
-```bash
+# Start development server
 pnpm tauri:dev
 ```
 
-### Building
-
-Build for your platform:
+### Production Build
 ```bash
+# Build for current platform
 pnpm tauri:build
+
+# Build for specific platform
+pnpm tauri:build --target x86_64-apple-darwin  # macOS
+pnpm tauri:build --target x86_64-pc-windows-msvc  # Windows
+pnpm tauri:build --target x86_64-unknown-linux-gnu  # Linux
 ```
 
-## Usage
+## 🚀 Usage
 
-1. **Configure Network Settings**: Set your network range and scan options
-2. **Scan Network**: Click "Scan" to discover Moonraker hosts
-3. **Manage Printers**: Use the control buttons for print operations
-4. **View Webcam**: Click the webcam button to see live streams
-5. **Access Hosts**: Click IP addresses to open in browser or SSH
+### Initial Setup
+1. **Launch the application**
+2. **Configure network subnets** in settings (default: auto-detection)
+3. **Enable desired notifications** for printer status changes
+4. **Start network scanning**
 
-## API Integration
+### Network Scanning
+- **Automatic scanning** runs at configured intervals
+- **Status updates** occur every second for online hosts
+- **New hosts** are automatically discovered and added
+- **Offline hosts** are marked but not removed
 
-The application integrates with Moonraker's REST API:
+### Printer Management
+- **Click hostname** to open printer web interface
+- **Use control buttons** for print job management
+- **Click webcam button** for live stream viewing
+- **Click SSH button** for terminal access
 
-- `GET /server/info` - Host discovery and info
-- `POST /printer/print/start` - Start print job
-- `POST /printer/print/pause` - Pause print job  
-- `POST /printer/print/cancel` - Cancel print job
-- `POST /printer/emergency_stop` - Emergency stop
-- `GET /webcam/?action=stream` - Webcam stream
+### Customization
+- **Rename hosts** by clicking the edit icon
+- **Reset hostnames** to original values
+- **Configure notification preferences** per status type
+- **Adjust scan intervals** for your network
 
-## Development
+## 🔧 Configuration
 
-### Project Structure
+### Network Settings
+- **Subnet configuration**: Add custom subnets for scanning
+- **Scan interval**: Configure automatic scan frequency
+- **Port detection**: Moonraker API port (default: 7125)
+
+### Notification Settings
+- **Status-based notifications**: Enable/disable per status type
+- **System integration**: Native platform notifications
+- **Multi-language support**: Localized notification messages
+
+### Display Settings
+- **Language selection**: English, Russian, German
+- **Theme support**: Light/dark mode (system-based)
+- **UI customization**: Responsive design for all screen sizes
+
+## 📁 Project Structure
 
 ```
 MoonrakerHostScanner/
-├── src/                    # Next.js frontend
-│   ├── app/               # App router pages
+├── src/                    # Frontend source code
+│   ├── app/               # Next.js app directory
 │   ├── components/        # React components
-│   ├── lib/              # Utilities and i18n
+│   │   ├── ui/           # shadcn/ui components
+│   │   └── network-scanner.tsx
+│   ├── lib/              # Utilities and translations
+│   │   └── translations/ # Language files
 │   └── hooks/            # Custom React hooks
 ├── src-tauri/            # Rust backend
 │   ├── src/              # Rust source code
 │   ├── Cargo.toml        # Rust dependencies
 │   └── tauri.conf.json   # Tauri configuration
+├── public/               # Static assets
 └── docs/                 # Documentation
 ```
 
-### Available Scripts
+## 🌐 API Integration
 
-- `pnpm dev` - Start Next.js development server
-- `pnpm build` - Build Next.js for production
-- `pnpm tauri:dev` - Start Tauri development mode
-- `pnpm tauri:build` - Build Tauri application for current platform
-- `pnpm build:macos` - Build for macOS (Intel + Apple Silicon)
-- `pnpm build:windows` - Build for Windows
-- `pnpm build:linux` - Build for Linux
-- `pnpm build:all` - Build for all platforms
-- `pnpm create-dmg` - Create DMG file for macOS (after building)
-- `pnpm lint` - Run ESLint
+### Moonraker Endpoints
+- `GET /server/info` - Server information
+- `GET /api/printer` - Printer status and flags
+- `POST /printer/print/start` - Start print job
+- `POST /printer/print/pause` - Pause print job
+- `POST /printer/print/cancel` - Cancel print job
+- `POST /printer/emergency_stop` - Emergency stop
+- `GET /webcam/?action=stream` - Webcam stream
 
-### Adding New Features
+### Status Flags
+- `operational` - Printer is operational
+- `paused` - Print job is paused
+- `printing` - Currently printing
+- `cancelling` - Cancelling print job
+- `error` - Printer error state
+- `ready` - Printer ready (mapped to standby)
 
-1. **Frontend**: Add React components in `src/components/`
-2. **Backend**: Add Rust commands in `src-tauri/src/lib.rs`
-3. **API**: Update TypeScript interfaces as needed
-4. **i18n**: Add translations in `src/lib/i18n.ts`
+## 🤝 Contributing
 
-## Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+### Development Workflow
+1. **Fork the repository**
+2. **Create feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make changes** and test thoroughly
+4. **Commit changes**: `git commit -m 'Add amazing feature'`
+5. **Push to branch**: `git push origin feature/amazing-feature`
+6. **Open Pull Request**
 
-## License
+## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Support
+## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/moonraker-host-scanner/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/moonraker-host-scanner/discussions)
+### Common Issues
+- **Network scanning issues**: Check firewall settings and subnet configuration
+- **Notification problems**: Verify system notification permissions
+- **Build errors**: Ensure all prerequisites are installed (see BUILD.md)
 
-## Acknowledgments
+### Getting Help
+- **Check documentation**: Review BUILD.md and CONTRIBUTING.md
+- **Search issues**: Look for similar problems in GitHub issues
+- **Create issue**: Provide detailed information about your problem
 
-- [Tauri](https://tauri.app/) - Desktop application framework
-- [Next.js](https://nextjs.org/) - React framework
-- [Moonraker](https://moonraker.readthedocs.io/) - 3D printer API
-- [shadcn/ui](https://ui.shadcn.com/) - UI components
+## 🔄 Version History
+
+### v0.1.0 (Current)
+- ✅ Network discovery and host scanning
+- ✅ Real-time status monitoring
+- ✅ Printer control integration
+- ✅ Webcam streaming support
+- ✅ System notifications
+- ✅ Multi-language support
+- ✅ Cross-platform compatibility
+
+---
+
+**Built with ❤️ using Tauri and Next.js**

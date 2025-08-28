@@ -1,3 +1,20 @@
+/**
+ * Moonraker Host Scanner - Main Application Component
+ * 
+ * This component provides a comprehensive interface for discovering, monitoring,
+ * and controlling Moonraker-enabled 3D printers on the network.
+ * 
+ * Features:
+ * - Network scanning and host discovery
+ * - Real-time printer status monitoring
+ * - Printer control (start, pause, stop, emergency stop)
+ * - Webcam streaming with image manipulation
+ * - System notifications for status changes
+ * - Multi-language support (English, Russian, German)
+ * - Custom hostname management
+ * - Settings persistence
+ */
+
 "use client"
 
 import React from "react"
@@ -45,6 +62,9 @@ import {
 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n"
 
+/**
+ * Network subnet configuration for scanning
+ */
 interface Subnet {
   id: string
   range: string
@@ -52,10 +72,13 @@ interface Subnet {
   enabled: boolean
 }
 
+/**
+ * Host information for discovered Moonraker printers
+ */
 interface HostInfo {
   id: string
   hostname: string
-  original_hostname: string // Оригинальное имя с сервера
+  original_hostname: string // Original hostname from server
   ip_address: string
   subnet: string
   status: "online" | "offline"
@@ -178,6 +201,15 @@ export function NetworkScanner() {
       return await (window as any).__TAURI__.core.invoke(command, args)
     }
     throw new Error('Tauri API not available')
+  }
+
+  // Отправка системного уведомления
+  const sendNotification = async (title: string, body: string) => {
+    try {
+      await invokeTauri('send_system_notification', { title, body })
+    } catch (error) {
+      console.error('Failed to send notification:', error)
+    }
   }
 
   // Load settings from localStorage
@@ -635,7 +667,7 @@ export function NetworkScanner() {
                     // Проверяем, изменил ли пользователь имя
                     const hasCustomName = prevHost.hostname !== prevHost.original_hostname
                     
-                    return {
+                    const newHost = {
                       ...prevHost,
                       status: updatedHost.status as "online" | "offline",
                       device_status: updatedHost.device_status,
@@ -648,6 +680,11 @@ export function NetworkScanner() {
                       hostname: hasCustomName ? prevHost.hostname : updatedHost.hostname,
                       original_hostname: updatedHost.original_hostname
                     } as HostInfo
+
+                    // Проверяем изменения статуса и отправляем уведомления
+                    checkStatusChangeAndNotify(prevHost, newHost)
+                    
+                    return newHost
                   }
                   return prevHost
                 })
@@ -658,6 +695,12 @@ export function NetworkScanner() {
     }
   }
 
+  /**
+   * Determines printer status based on Moonraker API flags
+   * Priority order: error > cancelling > paused > printing > ready > standby
+   * @param host - Host information containing printer flags
+   * @returns Status string for display
+   */
   const getPrinterStatus = (host: HostInfo): string => {
     if (host.status === 'offline') {
       return 'offline'
@@ -669,7 +712,7 @@ export function NetworkScanner() {
     
     const flags = host.printer_flags
     
-    // Приоритет статусов: error > cancelling > paused > printing > ready > standby
+    // Priority order: error > cancelling > paused > printing > ready > standby
     if (flags.error) {
       return 'error'
     }
@@ -687,6 +730,27 @@ export function NetworkScanner() {
     }
     
     return 'standby'
+  }
+
+  /**
+   * Checks for status changes and sends system notifications
+   * @param oldHost - Previous host state
+   * @param newHost - Current host state
+   */
+  const checkStatusChangeAndNotify = (oldHost: HostInfo, newHost: HostInfo) => {
+    const oldStatus = getPrinterStatus(oldHost)
+    const newStatus = getPrinterStatus(newHost)
+    
+    if (oldStatus !== newStatus) {
+      // Check if notifications are enabled for this status
+      const statusKey = newStatus as keyof typeof settings.notifications
+      if (settings.notifications[statusKey]) {
+        const title = `${t.networkScanner} - ${oldHost.hostname}`
+        const body = `${t.status}: ${t[statusKey as keyof typeof t] || newStatus}`
+        
+        sendNotification(title, body)
+      }
+    }
   }
 
   const getStatusBadge = (status: string) => {

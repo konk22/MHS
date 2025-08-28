@@ -1,51 +1,304 @@
 # Contributing to Moonraker Host Scanner
 
-Thank you for your interest in contributing to Moonraker Host Scanner! This document provides guidelines and information for contributors.
+🤝 **Thank you for your interest in contributing to Moonraker Host Scanner!**
 
-## Getting Started
+This document provides guidelines and information for contributors to help make the contribution process smooth and effective.
+
+## 📋 Table of Contents
+
+- [Code of Conduct](#code-of-conduct)
+- [Getting Started](#getting-started)
+- [Development Setup](#development-setup)
+- [Code Style Guidelines](#code-style-guidelines)
+- [Testing Guidelines](#testing-guidelines)
+- [Pull Request Process](#pull-request-process)
+- [Issue Reporting](#issue-reporting)
+- [Feature Requests](#feature-requests)
+- [Documentation](#documentation)
+
+## 🤝 Code of Conduct
+
+### Our Standards
+
+We are committed to providing a welcoming and inspiring community for all. By participating in this project, you agree to:
+
+- **Be respectful** and inclusive of all contributors
+- **Be collaborative** and open to different viewpoints
+- **Be constructive** in feedback and criticism
+- **Be professional** in all interactions
+
+### Enforcement
+
+Unacceptable behavior will not be tolerated. Please report any violations to the project maintainers.
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ and pnpm
-- Rust toolchain (latest stable)
-- Git
+Before contributing, ensure you have:
 
-### Development Setup
+- **Node.js** 18.0.0 or higher
+- **pnpm** 8.0.0 or higher
+- **Rust** 1.70.0 or higher
+- **Git** for version control
+- **Basic knowledge** of React, TypeScript, and Rust
 
-1. **Fork and clone the repository**:
+### Fork and Clone
+
+1. **Fork the repository** on GitHub
+2. **Clone your fork** locally:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/MoonrakerHostScanner.git
+   cd MoonrakerHostScanner
+   ```
+3. **Add upstream remote**:
+   ```bash
+   git remote add upstream https://github.com/ORIGINAL_OWNER/MoonrakerHostScanner.git
+   ```
+
+## 🛠️ Development Setup
+
+### 1. Install Dependencies
+
 ```bash
-git clone https://github.com/yourusername/moonraker-host-scanner.git
-cd moonraker-host-scanner
-```
-
-2. **Install dependencies**:
-```bash
+# Install Node.js dependencies
 pnpm install
+
+# Verify Rust toolchain
+cargo --version
+rustc --version
 ```
 
-3. **Start development server**:
+### 2. Development Environment
+
 ```bash
+# Start development server
 pnpm tauri:dev
+
+# Build for testing
+pnpm tauri:build
 ```
 
-## Development Guidelines
+### 3. Code Quality Tools
 
-### Code Style
+```bash
+# Run linting
+pnpm lint
 
-- **TypeScript**: Use strict mode, prefer interfaces over types
-- **React**: Use functional components with hooks
-- **Rust**: Follow Rust conventions, use `cargo fmt` and `cargo clippy`
-- **CSS**: Use Tailwind CSS classes, prefer utility-first approach
+# Run type checking
+pnpm type-check
 
-### Commit Messages
+# Run tests (if available)
+pnpm test
+```
 
-Follow conventional commits format:
+## 📝 Code Style Guidelines
+
+### TypeScript/React Guidelines
+
+#### File Organization
+```
+src/
+├── app/                    # Next.js app directory
+├── components/            # React components
+│   ├── ui/               # Reusable UI components
+│   └── feature/          # Feature-specific components
+├── lib/                  # Utilities and helpers
+├── hooks/                # Custom React hooks
+└── types/                # TypeScript type definitions
+```
+
+#### Component Structure
+```typescript
+// Component naming: PascalCase
+export function NetworkScanner() {
+  // Hooks first
+  const [state, setState] = useState()
+  
+  // Event handlers
+  const handleClick = () => {
+    // Implementation
+  }
+  
+  // Render
+  return (
+    <div>
+      {/* JSX */}
+    </div>
+  )
+}
+```
+
+#### TypeScript Best Practices
+```typescript
+// Use interfaces for object shapes
+interface HostInfo {
+  id: string
+  hostname: string
+  ip_address: string
+  status: 'online' | 'offline'
+}
+
+// Use type aliases for unions
+type PrinterStatus = 'printing' | 'paused' | 'error' | 'standby'
+
+// Use const assertions for constants
+const STATUS_CONFIG = {
+  printing: { color: 'green', text: 'Printing' }
+} as const
+```
+
+### Rust Guidelines
+
+#### File Organization
+```
+src-tauri/src/
+├── lib.rs                # Main library file
+├── commands/             # Tauri commands
+├── models/               # Data structures
+├── network/              # Network utilities
+└── utils/                # Helper functions
+```
+
+#### Code Style
+```rust
+// Use snake_case for functions and variables
+pub async fn scan_network(subnet: &str) -> Result<Vec<HostInfo>, Error> {
+    // Implementation
+}
+
+// Use PascalCase for types
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HostInfo {
+    pub id: String,
+    pub hostname: String,
+    pub ip_address: String,
+}
+
+// Use SCREAMING_SNAKE_CASE for constants
+const DEFAULT_PORT: u16 = 7125;
+const SCAN_TIMEOUT: Duration = Duration::from_secs(5);
+```
+
+#### Error Handling
+```rust
+// Use Result for fallible operations
+pub async fn get_printer_info(host: &str) -> Result<PrinterInfo, MoonrakerError> {
+    let response = reqwest::get(&format!("http://{}:7125/server/info", host))
+        .await
+        .map_err(|e| MoonrakerError::NetworkError(e.to_string()))?;
+    
+    response.json::<PrinterInfo>()
+        .await
+        .map_err(|e| MoonrakerError::ParseError(e.to_string()))
+}
+```
+
+### Internationalization
+
+#### Adding New Translations
+
+1. **Add translation key** to all language files:
+   ```typescript
+   // src/lib/translations/en.ts
+   export const en: Translations = {
+     // ... existing translations
+     newFeature: "New Feature"
+   }
+   
+   // src/lib/translations/ru.ts
+   export const ru: Translations = {
+     // ... existing translations
+     newFeature: "Новая функция"
+   }
+   
+   // src/lib/translations/de.ts
+   export const de: Translations = {
+     // ... existing translations
+     newFeature: "Neue Funktion"
+   }
+   ```
+
+2. **Update interface** in `src/lib/translations/index.ts`:
+   ```typescript
+   export interface Translations {
+     // ... existing fields
+     newFeature: string
+   }
+   ```
+
+3. **Use in components**:
+   ```typescript
+   const { t } = useTranslation()
+   return <div>{t.newFeature}</div>
+   ```
+
+## 🧪 Testing Guidelines
+
+### Frontend Testing
+
+```typescript
+// Component testing with React Testing Library
+import { render, screen } from '@testing-library/react'
+import { NetworkScanner } from './network-scanner'
+
+test('displays scan button', () => {
+  render(<NetworkScanner />)
+  expect(screen.getByText('Scan Network')).toBeInTheDocument()
+})
+```
+
+### Backend Testing
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[tokio::test]
+    async fn test_scan_network() {
+        let result = scan_network("192.168.1.0/24").await;
+        assert!(result.is_ok());
+    }
+}
+```
+
+### Integration Testing
+
+```bash
+# Test complete application flow
+pnpm tauri:dev
+# Manually test all features
+```
+
+## 🔄 Pull Request Process
+
+### 1. Create Feature Branch
+
+```bash
+# Create and switch to feature branch
+git checkout -b feature/amazing-feature
+
+# Or for bug fixes
+git checkout -b fix/bug-description
+```
+
+### 2. Make Changes
+
+- **Write clear, focused commits**
+- **Follow code style guidelines**
+- **Add tests for new features**
+- **Update documentation as needed**
+
+### 3. Commit Messages
+
+Use conventional commit format:
 ```
 type(scope): description
 
-[optional body]
-
-[optional footer]
+feat(network): add subnet configuration
+fix(ui): resolve webcam modal positioning
+docs(readme): update installation instructions
 ```
 
 Types:
@@ -57,261 +310,179 @@ Types:
 - `test`: Adding tests
 - `chore`: Maintenance tasks
 
-### Pull Request Process
-
-1. **Create a feature branch**:
-```bash
-git checkout -b feature/your-feature-name
-```
-
-2. **Make your changes**:
-   - Write clean, documented code
-   - Add tests if applicable
-   - Update documentation
-
-3. **Test your changes**:
-```bash
-# Type checking
-npx tsc --noEmit --skipLibCheck
-
-# Linting
-pnpm lint
-
-# Build test
-pnpm build
-
-# Run Tauri in dev mode
-pnpm tauri:dev
-```
-
-4. **Commit your changes**:
-```bash
-git add .
-git commit -m "feat: add new feature"
-```
-
-5. **Push and create PR**:
-```bash
-git push origin feature/your-feature-name
-```
-
-### Pull Request Guidelines
-
-- **Title**: Clear, descriptive title
-- **Description**: Explain what and why, not how
-- **Screenshots**: Include screenshots for UI changes
-- **Tests**: Ensure all tests pass
-- **Documentation**: Update docs if needed
-
-## Project Structure
-
-```
-MoonrakerHostScanner/
-├── src/                    # Next.js frontend
-│   ├── app/               # App router pages
-│   ├── components/        # React components
-│   │   └── ui/           # shadcn/ui components
-│   ├── lib/              # Utilities and i18n
-│   └── hooks/            # Custom React hooks
-├── src-tauri/            # Rust backend
-│   ├── src/              # Rust source code
-│   ├── Cargo.toml        # Rust dependencies
-│   └── tauri.conf.json   # Tauri configuration
-└── docs/                 # Documentation
-```
-
-## Adding New Features
-
-### Frontend (React/TypeScript)
-
-1. **Create component** in `src/components/`
-2. **Add translations** in `src/lib/i18n.ts`
-3. **Update interfaces** if needed
-4. **Add to main page** in `src/app/page.tsx`
-
-### Backend (Rust)
-
-1. **Add command** in `src-tauri/src/lib.rs`
-2. **Update handler** in `tauri::generate_handler!`
-3. **Add error handling**
-4. **Test with frontend**
-
-### Example: Adding a New API Command
-
-**Backend (Rust)**:
-```rust
-#[tauri::command]
-async fn new_command(ip: String) -> Result<String, String> {
-    // Implementation
-    Ok("Success".to_string())
-}
-
-// Add to handler
-tauri::generate_handler![
-    scan_network,
-    control_printer_command,
-    open_host_in_browser,
-    open_ssh_connection,
-    new_command  // Add here
-]
-```
-
-**Frontend (TypeScript)**:
-```typescript
-// Add to interface
-interface NewCommandResult {
-  result: string;
-}
-
-// Add to component
-const handleNewCommand = async (ip: string) => {
-  try {
-    const result = await invokeTauri<NewCommandResult>('new_command', { ip });
-    console.log(result);
-  } catch (error) {
-    console.error('Error:', error);
-  }
-};
-```
-
-## Testing
-
-### Manual Testing
-
-1. **Network scanning**: Test with real Moonraker hosts
-2. **Printer controls**: Test all control buttons
-3. **Webcam streaming**: Test webcam modal and controls
-4. **Cross-platform**: Test on different OS if possible
-
-### Automated Testing
+### 4. Push and Create PR
 
 ```bash
-# Type checking
-npx tsc --noEmit --skipLibCheck
+# Push to your fork
+git push origin feature/amazing-feature
 
-# Linting
-pnpm lint
-
-# Build test
-pnpm build
+# Create Pull Request on GitHub
 ```
 
-## Internationalization
+### 5. PR Template
 
-### Adding New Languages
+Use the provided PR template and include:
 
-1. **Update `src/lib/i18n.ts`**:
-```typescript
-export const translations = {
-  en: {
-    // English translations
-  },
-  ru: {
-    // Russian translations
-  },
-  es: {  // Add new language
-    // Spanish translations
-  }
-};
-```
+- **Description** of changes
+- **Screenshots** (if UI changes)
+- **Testing** performed
+- **Breaking changes** (if any)
+- **Related issues** (if any)
 
-2. **Add language selector** if needed
+### 6. Review Process
 
-### Translation Guidelines
+- **Code review** by maintainers
+- **Automated checks** must pass
+- **Manual testing** may be required
+- **Address feedback** promptly
 
-- Use clear, concise language
-- Maintain consistent terminology
-- Consider cultural differences
-- Test with native speakers
+## 🐛 Issue Reporting
 
-## Bug Reports
+### Before Reporting
 
-### Before Submitting
+1. **Search existing issues** for duplicates
+2. **Check documentation** for solutions
+3. **Test with latest version**
 
-1. **Check existing issues** for duplicates
-2. **Test on latest version**
-3. **Reproduce the issue**
-4. **Gather system information**
-
-### Bug Report Template
+### Issue Template
 
 ```markdown
-**Description**
+## Bug Description
 Brief description of the issue
 
-**Steps to Reproduce**
+## Steps to Reproduce
 1. Step 1
 2. Step 2
 3. Step 3
 
-**Expected Behavior**
+## Expected Behavior
 What should happen
 
-**Actual Behavior**
+## Actual Behavior
 What actually happens
 
-**Environment**
-- OS: [e.g., Windows 11, macOS 14, Ubuntu 22.04]
-- Version: [e.g., 1.0.0]
+## Environment
+- OS: [e.g., macOS 14.0]
 - Node.js: [e.g., 18.17.0]
 - Rust: [e.g., 1.70.0]
+- Application Version: [e.g., 0.1.0]
 
-**Additional Information**
-Screenshots, logs, etc.
+## Additional Information
+Screenshots, logs, or other relevant information
 ```
 
-## Feature Requests
+## 💡 Feature Requests
 
-### Before Submitting
+### Before Requesting
 
-1. **Check existing issues** for similar requests
-2. **Consider the scope** and complexity
-3. **Think about implementation** details
-4. **Consider user impact**
+1. **Check existing features** to avoid duplicates
+2. **Consider implementation complexity**
+3. **Ensure alignment with project goals**
 
 ### Feature Request Template
 
 ```markdown
-**Problem**
-Description of the problem this feature would solve
+## Feature Description
+Clear description of the requested feature
 
-**Proposed Solution**
-Description of the proposed solution
+## Use Case
+Why this feature is needed
 
-**Alternative Solutions**
-Other ways to solve the problem
+## Proposed Implementation
+How you think it should work
 
-**Additional Context**
-Screenshots, mockups, etc.
+## Alternatives Considered
+Other approaches you've considered
+
+## Additional Context
+Any other relevant information
 ```
 
-## Code of Conduct
+## 📚 Documentation
 
-### Our Standards
+### Code Documentation
 
-- **Be respectful** and inclusive
-- **Be collaborative** and constructive
-- **Be professional** and helpful
-- **Be patient** with newcomers
+#### TypeScript/React
+```typescript
+/**
+ * Scans the network for Moonraker hosts
+ * @param subnets - Array of subnets to scan
+ * @returns Promise resolving to array of discovered hosts
+ */
+export async function scanNetwork(subnets: string[]): Promise<HostInfo[]> {
+  // Implementation
+}
+```
 
-### Enforcement
+#### Rust
+```rust
+/// Scans the network for Moonraker hosts
+/// 
+/// # Arguments
+/// * `subnet` - Subnet to scan (e.g., "192.168.1.0/24")
+/// 
+/// # Returns
+/// * `Result<Vec<HostInfo>, MoonrakerError>` - Discovered hosts or error
+pub async fn scan_network(subnet: &str) -> Result<Vec<HostInfo>, MoonrakerError> {
+    // Implementation
+}
+```
 
-- Report violations to maintainers
-- Maintainers will investigate
-- Appropriate action will be taken
+### User Documentation
 
-## Getting Help
+- **README.md**: Project overview and quick start
+- **BUILD.md**: Build and deployment instructions
+- **API documentation**: For developers integrating with the app
 
-- **GitHub Issues**: For bugs and feature requests
-- **GitHub Discussions**: For questions and ideas
-- **Documentation**: Check README.md and BUILD.md
-- **Tauri Discord**: For Tauri-specific questions
+## 🏷️ Version Management
 
-## Recognition
+### Semantic Versioning
+
+- **Major** (1.0.0): Breaking changes
+- **Minor** (1.1.0): New features, backward compatible
+- **Patch** (1.1.1): Bug fixes, backward compatible
+
+### Release Process
+
+1. **Update version** in `package.json` and `Cargo.toml`
+2. **Update changelog** with new features/fixes
+3. **Create release tag**: `git tag v1.0.0`
+4. **Push tag**: `git push origin v1.0.0`
+5. **Create GitHub release** with build artifacts
+
+## 🤝 Community Guidelines
+
+### Communication
+
+- **Be respectful** in all interactions
+- **Use clear language** and provide context
+- **Ask questions** when unsure
+- **Help others** when possible
+
+### Recognition
 
 Contributors will be recognized in:
-- README.md contributors section
-- Release notes
-- GitHub contributors page
+- **README.md** contributors section
+- **Release notes** for significant contributions
+- **GitHub contributors** page
 
-Thank you for contributing to Moonraker Host Scanner! 🚀
+## 📞 Getting Help
+
+### Resources
+
+- **Documentation**: README.md, BUILD.md
+- **Issues**: GitHub Issues for bug reports
+- **Discussions**: GitHub Discussions for questions
+- **Code**: Source code and comments
+
+### Contact
+
+- **Maintainers**: @project-maintainers
+- **Community**: GitHub Discussions
+- **Security**: Private security issues
+
+---
+
+**Thank you for contributing to Moonraker Host Scanner! 🎉**
+
+Your contributions help make this project better for everyone in the 3D printing community.

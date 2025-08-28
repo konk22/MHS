@@ -1,3 +1,18 @@
+/**
+ * Moonraker Host Scanner - Rust Backend Library
+ * 
+ * This module provides the backend functionality for the Moonraker Host Scanner
+ * desktop application, including network scanning, Moonraker API integration,
+ * and system notifications.
+ * 
+ * Features:
+ * - Network discovery and host scanning
+ * - Moonraker API communication
+ * - Printer status monitoring
+ * - System notifications
+ * - Cross-platform compatibility
+ */
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -5,13 +20,17 @@ use std::time::Duration;
 use tokio::time::timeout;
 use tokio::net::TcpStream;
 use std::net::SocketAddr;
+use notify_rust::Notification;
 
-// Структуры данных для Moonraker API
+/// Moonraker API data structures
+
+/// Server information response from Moonraker API
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MoonrakerServerInfo {
     pub result: ServerInfoResult,
 }
 
+/// Detailed server information including Klippy state and components
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServerInfoResult {
     pub klippy_connected: bool,
@@ -62,6 +81,7 @@ pub struct PrinterObject {
     pub value: serde_json::Value,
 }
 
+/// Printer status flags from Moonraker API state.flags
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PrinterFlags {
     pub operational: bool,
@@ -80,6 +100,7 @@ pub struct PrinterFlags {
     pub closed_or_error: bool,
 }
 
+/// Host information for discovered Moonraker printers
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HostInfo {
     pub id: String,
@@ -291,7 +312,27 @@ async fn control_printer(host: &str, action: &str) -> Result<serde_json::Value, 
     }
 }
 
-// Быстрая проверка доступности порта
+/// Sends a system notification using the platform's native notification system
+/// 
+/// # Arguments
+/// * `title` - Notification title
+/// * `body` - Notification body text
+fn send_notification(title: &str, body: &str) {
+    let _ = Notification::new()
+        .summary(title)
+        .body(body)
+        .icon("printer") // Printer icon
+        .show();
+}
+
+/// Quick port availability check with timeout
+/// 
+/// # Arguments
+/// * `ip` - IP address to check
+/// * `port` - Port number to check
+/// 
+/// # Returns
+/// * `bool` - True if port is open, false otherwise
 async fn check_port(ip: &str, port: u16) -> bool {
     let addr = format!("{}:{}", ip, port);
     match SocketAddr::from_str(&addr) {
@@ -605,6 +646,12 @@ async fn check_host_status(ip: String) -> Result<HostStatusResponse, String> {
 }
 
 #[tauri::command]
+fn send_system_notification(title: String, body: String) -> Result<(), String> {
+    send_notification(&title, &body);
+    Ok(())
+}
+
+#[tauri::command]
 fn open_ssh_connection(host: String, user: String) -> Result<(), String> {
     println!("Opening SSH connection to {}@{}", user, host);
     
@@ -652,7 +699,8 @@ pub fn run() {
             open_webcam,
             open_host_in_browser,
             open_ssh_connection,
-            check_host_status
+            check_host_status,
+            send_system_notification
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
