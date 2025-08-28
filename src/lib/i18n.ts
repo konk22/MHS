@@ -96,7 +96,7 @@ export const translations: Record<string, Translations> = {
     totalHosts: "Total Hosts",
     discoveredInNetwork: "Discovered in network",
     onlineHosts: "Online Hosts",
-    respondingToAPI: "Responding to API calls",
+    respondingToAPI: "Response received...",
     activeSubnets: "Active Subnets",
     networksBeingScanned: "Networks being scanned",
     scanRanges: "Scan Ranges",
@@ -105,10 +105,10 @@ export const translations: Record<string, Translations> = {
 
     // Scan Controls
     networkScan: "Network Scan",
-    scanConfiguredSubnet: "Scan the configured subnet for hosts that respond to API requests",
+    scanConfiguredSubnet: "Scan the configured subnet",
     scanning: "Scanning...",
     scanningPorts: "Scanning ports...",
-    scanningAPI: "Checking API...",
+    scanningAPI: "Checking...",
     startScan: "Start Scan",
     autoRefresh: "Auto-refresh",
 
@@ -122,7 +122,7 @@ export const translations: Record<string, Translations> = {
     delete: "Delete",
 
     // Expanded Row
-    apiControls: "API Controls",
+    apiControls: "Controls",
     start: "Start",
     pause: "Pause",
     stop: "Stop",
@@ -159,14 +159,14 @@ export const translations: Record<string, Translations> = {
 
     // About Tab
     version: "Version 0.0.1",
-    powerfulNetworkTool: "A powerful network discovery tool for finding API-enabled hosts",
+    powerfulNetworkTool: "Universal tool for searching and administering 3D printers based on Klipper in a local network",
 
     // Language Tab
     selectLanguage: "Select Language",
 
     // Table Content
     discoveredHosts: "Discovered Hosts",
-    hostsFoundInNetwork: "Hosts found in the network that respond to API requests",
+    hostsFoundInNetwork: "Printers found on local network",
     newNetwork: "New Network",
     mainNetwork: "Main Network",
     guestNetwork: "Guest Network",
@@ -182,7 +182,7 @@ export const translations: Record<string, Translations> = {
     totalHosts: "Всего Хостов",
     discoveredInNetwork: "Обнаружено в сети",
     onlineHosts: "Онлайн Хосты",
-    respondingToAPI: "Отвечают на API вызовы",
+    respondingToAPI: "Получен ответ...",
     activeSubnets: "Активные Подсети",
     networksBeingScanned: "Сканируемые сети",
     scanRanges: "Диапазоны Сканирования",
@@ -191,10 +191,10 @@ export const translations: Record<string, Translations> = {
 
     // Scan Controls
     networkScan: "Сканирование Сети",
-    scanConfiguredSubnet: "Сканировать настроенную подсеть на хосты, отвечающие на API запросы",
+    scanConfiguredSubnet: "Сканировать настроенную подсеть",
     scanning: "Сканирование...",
     scanningPorts: "Сканирование портов...",
-    scanningAPI: "Проверка API...",
+    scanningAPI: "Проверка...",
     startScan: "Начать Сканирование",
     autoRefresh: "Автообновление",
 
@@ -208,7 +208,7 @@ export const translations: Record<string, Translations> = {
     delete: "Удалить",
 
     // Expanded Row
-    apiControls: "API Управление",
+    apiControls: "Управление",
     start: "Старт",
     pause: "Пауза",
     stop: "Стоп",
@@ -245,14 +245,14 @@ export const translations: Record<string, Translations> = {
 
     // About Tab
     version: "Версия 0.0.1",
-    powerfulNetworkTool: "Мощный инструмент для обнаружения сетевых устройств с поддержкой API",
+    powerfulNetworkTool: "Универсальный инструмент для поиска и администрирования 3D принтеров на базе Klipper в локальной сети",
 
     // Language Tab
     selectLanguage: "Выбрать Язык",
 
     // Table Content
     discoveredHosts: "Обнаруженные Хосты",
-    hostsFoundInNetwork: "Хосты, найденные в сети, которые отвечают на API запросы",
+    hostsFoundInNetwork: "Принтеры найденные в локальной сети",
     newNetwork: "Новая Сеть",
     mainNetwork: "Основная Сеть",
     guestNetwork: "Гостевая Сеть",
