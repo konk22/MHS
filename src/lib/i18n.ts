@@ -83,6 +83,12 @@ export interface Translations {
   mainNetwork: string
   guestNetwork: string
   noSubnetsEnabled: string
+  
+  // Hostname Management
+  resetHostname: string
+  
+  // Auto-refresh
+  autoRefreshActive: string
 }
 
 export const translations: Record<string, Translations> = {
@@ -171,6 +177,8 @@ export const translations: Record<string, Translations> = {
     mainNetwork: "Main Network",
     guestNetwork: "Guest Network",
     noSubnetsEnabled: "No subnets enabled for scanning",
+    resetHostname: "Reset to original hostname",
+    autoRefreshActive: "Active",
   },
   ru: {
     // Header
@@ -257,6 +265,8 @@ export const translations: Record<string, Translations> = {
     mainNetwork: "Основная Сеть",
     guestNetwork: "Гостевая Сеть",
     noSubnetsEnabled: "Нет активных подсетей для сканирования",
+    resetHostname: "Сбросить к оригинальному имени",
+    autoRefreshActive: "Активно",
   },
 }
 

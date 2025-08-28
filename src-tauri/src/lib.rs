@@ -66,6 +66,7 @@ pub struct PrinterObject {
 pub struct HostInfo {
     pub id: String,
     pub hostname: String,
+    pub original_hostname: String,
     pub ip_address: String,
     pub subnet: String,
     pub status: String,
@@ -96,6 +97,16 @@ pub struct ScanResult {
 pub struct PrinterControlRequest {
     pub host: String,
     pub action: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HostStatusResponse {
+    pub success: bool,
+    pub status: String,
+    pub device_status: Option<String>,
+    pub moonraker_version: Option<String>,
+    pub klippy_state: Option<String>,
+    pub printer_state: Option<String>,
 }
 
 // Ошибки
@@ -284,7 +295,8 @@ async fn scan_host(ip: &str) -> Option<HostInfo> {
 
             Some(HostInfo {
                 id: ip.to_string(),
-                hostname,
+                hostname: hostname.clone(),
+                original_hostname: hostname,
                 ip_address: ip.to_string(),
                 subnet: "".to_string(), // Будет заполнено позже
                 status: "online".to_string(),
@@ -460,6 +472,73 @@ fn open_host_in_browser(host: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn check_host_status(ip: String) -> Result<HostStatusResponse, String> {
+    println!("Checking status for host: {}", ip);
+    
+    // Сначала проверяем порт
+    if !check_port(&ip, 7125).await {
+        return Ok(HostStatusResponse {
+            success: false,
+            status: "offline".to_string(),
+            device_status: None,
+            moonraker_version: None,
+            klippy_state: None,
+            printer_state: None,
+        });
+    }
+    
+    // Проверяем Moonraker API
+    match check_moonraker_api(&ip).await {
+        Ok(server_info) => {
+            // Получаем информацию о принтере
+            let printer_state = match get_printer_objects(&ip).await {
+                Ok(printer_objects) => {
+                    if let Some(print_stats) = printer_objects.result.objects.get("print_stats") {
+                        if let Some(state) = print_stats.value.get("state") {
+                            if let Some(state_str) = state.as_str() {
+                                match state_str {
+                                    "printing" => "printing",
+                                    "paused" => "paused",
+                                    "error" => "error",
+                                    "standby" => "standby",
+                                    _ => "ready"
+                                }
+                            } else {
+                                "ready"
+                            }
+                        } else {
+                            "ready"
+                        }
+                    } else {
+                        "ready"
+                    }
+                }
+                Err(_) => "ready"
+            };
+            
+            Ok(HostStatusResponse {
+                success: true,
+                status: "online".to_string(),
+                device_status: Some(printer_state.to_string()),
+                moonraker_version: Some(server_info.result.moonraker_version),
+                klippy_state: Some(server_info.result.klippy_state),
+                printer_state: Some(printer_state.to_string()),
+            })
+        }
+        Err(_) => {
+            Ok(HostStatusResponse {
+                success: false,
+                status: "offline".to_string(),
+                device_status: None,
+                moonraker_version: None,
+                klippy_state: None,
+                printer_state: None,
+            })
+        }
+    }
+}
+
+#[tauri::command]
 fn open_ssh_connection(host: String, user: String) -> Result<(), String> {
     println!("Opening SSH connection to {}@{}", user, host);
     
@@ -506,7 +585,8 @@ pub fn run() {
             get_printer_status,
             open_webcam,
             open_host_in_browser,
-            open_ssh_connection
+            open_ssh_connection,
+            check_host_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

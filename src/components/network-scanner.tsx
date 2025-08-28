@@ -55,6 +55,7 @@ interface Subnet {
 interface HostInfo {
   id: string
   hostname: string
+  original_hostname: string // Оригинальное имя с сервера
   ip_address: string
   subnet: string
   status: "online" | "offline"
@@ -190,8 +191,13 @@ export function NetworkScanner() {
     if (savedHosts) {
       try {
         const parsed = JSON.parse(savedHosts)
-        setHosts(parsed)
-        setOnlineHosts(parsed.filter((h: HostInfo) => h.status === 'online').length)
+        // Обеспечиваем обратную совместимость с существующими данными
+        const hostsWithOriginal = parsed.map((host: any) => ({
+          ...host,
+          original_hostname: host.original_hostname || host.hostname
+        }))
+        setHosts(hostsWithOriginal)
+        setOnlineHosts(hostsWithOriginal.filter((h: HostInfo) => h.status === 'online').length)
       } catch (error) {
         console.error('Failed to parse saved hosts:', error)
       }
@@ -245,6 +251,30 @@ export function NetworkScanner() {
     localStorage.setItem("networkScanner_language", settings.language)
   }, [settings.language])
 
+  // Auto-refresh effect
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null
+
+    if (settings.autoRefresh && hosts.length > 0) {
+      console.log(`Auto-refresh enabled: ${settings.refreshInterval} seconds`)
+      
+      // Запускаем первый refresh сразу
+      refreshHostsStatus()
+      
+      // Устанавливаем интервал
+      intervalId = setInterval(() => {
+        refreshHostsStatus()
+      }, settings.refreshInterval * 1000)
+    }
+
+    return () => {
+      if (intervalId) {
+        console.log('Auto-refresh disabled')
+        clearInterval(intervalId)
+      }
+    }
+  }, [settings.autoRefresh, settings.refreshInterval, hosts.length])
+
   const addSubnet = () => {
     const newSubnet: Subnet = {
       id: Date.now().toString(),
@@ -292,7 +322,34 @@ export function NetworkScanner() {
       
       if (result.hosts) {
         console.log('Found hosts:', result.hosts)
-        setHosts(result.hosts)
+        
+        // Сохраняем пользовательские имена при повторном сканировании
+        setHosts(prevHosts => {
+          const newHosts = result.hosts.map((newHost: any) => {
+            // Ищем существующий хост с таким же IP
+            const existingHost = prevHosts.find(h => h.ip_address === newHost.ip_address)
+            
+            if (existingHost) {
+              // Если хост уже существует, сохраняем пользовательское имя
+              return {
+                ...newHost,
+                original_hostname: newHost.hostname, // Сохраняем оригинальное имя с сервера
+                hostname: existingHost.hostname !== existingHost.original_hostname 
+                  ? existingHost.hostname // Сохраняем пользовательское имя
+                  : newHost.hostname // Используем новое имя, если пользователь не изменял
+              }
+            } else {
+              // Новый хост
+              return {
+                ...newHost,
+                original_hostname: newHost.hostname
+              }
+            }
+          })
+          
+          return newHosts
+        })
+        
         setOnlineHosts(result.online_hosts || 0)
       }
       
@@ -427,6 +484,69 @@ export function NetworkScanner() {
 
   const handleEditHostname = (hostId: string, newHostname: string) => {
     setHosts((prev) => prev.map((h) => (h.id === hostId ? { ...h, hostname: newHostname } : h)))
+  }
+
+  const handleResetHostname = (hostId: string) => {
+    setHosts((prev) =>
+      prev.map((h) =>
+        h.id === hostId ? { ...h, hostname: h.original_hostname } : h
+      )
+    )
+  }
+
+  // Функция для обновления состояния хостов
+  const refreshHostsStatus = async () => {
+    if (hosts.length === 0) return
+
+    try {
+      console.log('Auto-refresh: Checking status of', hosts.length, 'hosts')
+      
+      // Обновляем состояние каждого хоста
+      const updatedHosts = await Promise.all(
+        hosts.map(async (host) => {
+          try {
+            // Проверяем состояние хоста через Tauri API
+            const result = await invokeTauri('check_host_status', { ip: host.ip_address })
+            
+            if (result.success) {
+              return {
+                ...host,
+                status: result.status,
+                device_status: result.device_status || host.device_status,
+                moonraker_version: result.moonraker_version || host.moonraker_version,
+                klippy_state: result.klippy_state || host.klippy_state,
+                printer_state: result.printer_state || host.printer_state,
+                last_seen: new Date().toISOString()
+              }
+            } else {
+              // Хост недоступен
+              return {
+                ...host,
+                status: 'offline',
+                device_status: 'offline',
+                last_seen: new Date().toISOString()
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to check status for host ${host.ip_address}:`, error)
+            // В случае ошибки помечаем хост как оффлайн
+            return {
+              ...host,
+              status: 'offline',
+              device_status: 'offline',
+              last_seen: new Date().toISOString()
+            }
+          }
+        })
+      )
+
+      setHosts(updatedHosts)
+      setOnlineHosts(updatedHosts.filter(h => h.status === 'online').length)
+      
+      console.log('Auto-refresh completed. Online hosts:', updatedHosts.filter(h => h.status === 'online').length)
+    } catch (error) {
+      console.error('Auto-refresh failed:', error)
+    }
   }
 
   const getStatusBadge = (deviceStatus: string) => {
@@ -777,6 +897,12 @@ export function NetworkScanner() {
                     <SelectItem value="600">10m</SelectItem>
                   </SelectContent>
                 </Select>
+                {settings.autoRefresh && hosts.length > 0 && (
+                  <div className="flex items-center gap-1 text-sm text-green-600">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span>{t.autoRefreshActive}</span>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -834,11 +960,24 @@ export function NetworkScanner() {
                         </Button>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          value={host.hostname || host.hostname}
-                          onChange={(e) => handleEditHostname(host.id, e.target.value)}
-                          className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
-                        />
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={host.hostname}
+                            onChange={(e) => handleEditHostname(host.id, e.target.value)}
+                            className="border-none bg-transparent p-0 h-auto focus-visible:ring-0 flex-1"
+                          />
+                          {host.hostname !== host.original_hostname && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleResetHostname(host.id)}
+                              className="h-6 w-6 p-0"
+                              title={t.resetHostname}
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Button
