@@ -66,7 +66,9 @@ export const ru = {
   paused: "Пауза",
   cancelling: "Отмена",
   error: "Ошибка",
+  ready: "Готов",
   standby: "Ожидание",
+  offline: "Оффлайн",
 
   // About Tab
   version: "Версия 0.0.1",

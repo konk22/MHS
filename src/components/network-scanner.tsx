@@ -64,12 +64,15 @@ interface HostInfo {
   klippy_state?: string
   printer_state?: string
   printer_flags?: {
+    operational: boolean
     paused: boolean
     printing: boolean
     cancelling: boolean
+    pausing: boolean
+    resuming?: boolean
+    sdReady?: boolean
     error: boolean
     ready: boolean
-    operational: boolean
     closedOrError: boolean
   }
   last_seen?: string
@@ -113,6 +116,7 @@ interface AppSettings {
     cancelling: boolean
     error: boolean
     standby: boolean
+    offline: boolean
   }
   theme: "light" | "dark" | "system"
   autoRefresh: boolean
@@ -143,6 +147,7 @@ export function NetworkScanner() {
       cancelling: true,
       error: true,
       standby: false,
+      offline: true,
     },
     theme: "system",
     autoRefresh: false,
@@ -200,11 +205,10 @@ export function NetworkScanner() {
       try {
         const parsed = JSON.parse(savedHosts)
         // Обеспечиваем обратную совместимость с существующими данными
-                  const hostsWithOriginal = parsed.map((host: any) => ({
-            ...host,
-            original_hostname: host.original_hostname || host.hostname,
-            printer_flags: host.printer_flags || null
-          }))
+        const hostsWithOriginal = parsed.map((host: any) => ({
+          ...host,
+          original_hostname: host.original_hostname || host.hostname
+        }))
         setHosts(hostsWithOriginal)
         setOnlineHosts(hostsWithOriginal.filter((h: HostInfo) => h.status === 'online').length)
       } catch (error) {
@@ -396,14 +400,12 @@ export function NetworkScanner() {
                   return {
                     ...newHost,
                     original_hostname: newHost.hostname, // Обновляем оригинальное имя
-                    hostname: hasCustomName ? existingHost.hostname : newHost.hostname, // Сохраняем пользовательское или используем новое
-                    printer_flags: newHost.printer_flags || existingHost.printer_flags
+                    hostname: hasCustomName ? existingHost.hostname : newHost.hostname // Сохраняем пользовательское или используем новое
                   }
                 } else {
                   return {
                     ...newHost,
-                    original_hostname: newHost.hostname,
-                    printer_flags: newHost.printer_flags
+                    original_hostname: newHost.hostname
                   }
                 }
               })
@@ -625,31 +627,31 @@ export function NetworkScanner() {
         })
       )
 
-      // Обновляем хосты, сохраняя пользовательские имена
-      setHosts(prevHosts => 
-        prevHosts.map(prevHost => {
-          const updatedHost = updatedHosts.find(h => h.id === prevHost.id)
-          if (updatedHost) {
-            // Проверяем, изменил ли пользователь имя
-            const hasCustomName = prevHost.hostname !== prevHost.original_hostname
-            
-            return {
-              ...prevHost,
-              status: updatedHost.status as "online" | "offline",
-              device_status: updatedHost.device_status,
-              moonraker_version: updatedHost.moonraker_version,
-              klippy_state: updatedHost.klippy_state,
-              printer_state: updatedHost.printer_state,
-              printer_flags: updatedHost.printer_flags,
-              last_seen: updatedHost.last_seen,
-              // Сохраняем пользовательское имя, если оно было изменено
-              hostname: hasCustomName ? prevHost.hostname : updatedHost.hostname,
-              original_hostname: updatedHost.original_hostname
-            } as HostInfo
-          }
-          return prevHost
-        })
-      )
+                    // Обновляем хосты, сохраняя пользовательские имена
+              setHosts(prevHosts => 
+                prevHosts.map(prevHost => {
+                  const updatedHost = updatedHosts.find(h => h.id === prevHost.id)
+                  if (updatedHost) {
+                    // Проверяем, изменил ли пользователь имя
+                    const hasCustomName = prevHost.hostname !== prevHost.original_hostname
+                    
+                    return {
+                      ...prevHost,
+                      status: updatedHost.status as "online" | "offline",
+                      device_status: updatedHost.device_status,
+                      moonraker_version: updatedHost.moonraker_version,
+                      klippy_state: updatedHost.klippy_state,
+                      printer_state: updatedHost.printer_state,
+                      printer_flags: updatedHost.printer_flags,
+                      last_seen: updatedHost.last_seen,
+                      // Сохраняем пользовательское имя, если оно было изменено
+                      hostname: hasCustomName ? prevHost.hostname : updatedHost.hostname,
+                      original_hostname: updatedHost.original_hostname
+                    } as HostInfo
+                  }
+                  return prevHost
+                })
+              )
       setOnlineHosts(updatedHosts.filter(h => h.status === 'online').length)
     } catch (error) {
       console.error('Auto-refresh failed:', error)
@@ -661,44 +663,50 @@ export function NetworkScanner() {
       return 'offline'
     }
     
-    if (host.printer_flags) {
-      const flags = host.printer_flags
-      
-      // Приоритеты статусов (от высшего к низшему)
-      if (flags.error || flags.closedOrError) {
-        return 'error'
-      } else if (flags.cancelling) {
-        return 'cancelling'
-      } else if (flags.printing) {
-        return 'printing'
-      } else if (flags.paused) {
-        return 'paused'
-      } else if (flags.ready && !flags.printing && !flags.paused && !flags.cancelling && !flags.error) {
-        return 'standby' // fallback только когда все остальные false
-      }
+    if (!host.printer_flags) {
+      return 'standby'
     }
     
-    // Fallback к старому device_status
-    return host.device_status || 'standby'
+    const flags = host.printer_flags
+    
+    // Приоритет статусов: error > cancelling > paused > printing > ready > standby
+    if (flags.error) {
+      return 'error'
+    }
+    if (flags.cancelling) {
+      return 'cancelling'
+    }
+    if (flags.paused) {
+      return 'paused'
+    }
+    if (flags.printing) {
+      return 'printing'
+    }
+    if (flags.ready) {
+      return 'standby'
+    }
+    
+    return 'standby'
   }
 
-  const getStatusBadge = (deviceStatus: string) => {
+  const getStatusBadge = (status: string) => {
     const statusConfig = {
       printing: { color: "bg-blue-100 text-blue-800", icon: Activity },
       paused: { color: "bg-yellow-100 text-yellow-800", icon: Pause },
       cancelling: { color: "bg-orange-100 text-orange-800", icon: Square },
       error: { color: "bg-red-100 text-red-800", icon: AlertTriangle },
+      ready: { color: "bg-green-100 text-green-800", icon: Play },
       standby: { color: "bg-gray-100 text-gray-800", icon: Clock },
       offline: { color: "bg-red-100 text-red-800", icon: WifiOff },
     }
 
-    const config = statusConfig[deviceStatus as keyof typeof statusConfig] || statusConfig.offline
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.offline
     const Icon = config.icon
 
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
         <Icon className="h-3 w-3" />
-        {t[deviceStatus as keyof typeof t] || deviceStatus}
+        {t[status as keyof typeof t] || status}
       </span>
     )
   }
@@ -886,29 +894,36 @@ export function NetworkScanner() {
                     </TabsContent>
 
                     <TabsContent value="notifications" className="space-y-4 mt-4">
-                      <div className="space-y-3">
-                        <Label>{t.enableNotificationsFor}</Label>
-                        {Object.entries(settings.notifications).map(([key, value]) => (
-                          <div key={key} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={key}
-                              checked={value}
-                              onCheckedChange={(checked) =>
-                                setSettings((prev) => ({
-                                  ...prev,
-                                  notifications: {
-                                    ...prev.notifications,
-                                    [key]: checked as boolean,
-                                  },
-                                }))
-                              }
-                            />
-                            <Label htmlFor={key} className="capitalize">
-                              {t[key as keyof typeof t] || key}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
+                                              <div className="space-y-3">
+                          <Label>{t.enableNotificationsFor}</Label>
+                          {[
+                            { key: 'printing', label: t.printing },
+                            { key: 'paused', label: t.paused },
+                            { key: 'cancelling', label: t.cancelling },
+                            { key: 'error', label: t.error },
+                            { key: 'standby', label: t.standby },
+                            { key: 'offline', label: t.offline }
+                          ].map(({ key, label }) => (
+                            <div key={key} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={key}
+                                checked={settings.notifications[key as keyof typeof settings.notifications]}
+                                onCheckedChange={(checked) =>
+                                  setSettings((prev) => ({
+                                    ...prev,
+                                    notifications: {
+                                      ...prev.notifications,
+                                      [key]: checked as boolean,
+                                    },
+                                  }))
+                                }
+                              />
+                              <Label htmlFor={key} className="capitalize">
+                                {label}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="language" className="space-y-4 mt-4">

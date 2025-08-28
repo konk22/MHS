@@ -70,7 +70,9 @@ export interface Translations {
   paused: string
   cancelling: string
   error: string
+  ready: string
   standby: string
+  offline: string
 
   // About Tab
   version: string
