@@ -63,6 +63,17 @@ pub struct PrinterObject {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct PrinterFlags {
+    pub paused: bool,
+    pub printing: bool,
+    pub cancelling: bool,
+    pub error: bool,
+    pub ready: bool,
+    pub operational: bool,
+    pub closed_or_error: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct HostInfo {
     pub id: String,
     pub hostname: String,
@@ -74,6 +85,7 @@ pub struct HostInfo {
     pub moonraker_version: Option<String>,
     pub klippy_state: Option<String>,
     pub printer_state: Option<String>,
+    pub printer_flags: Option<PrinterFlags>,
     pub last_seen: Option<String>,
 }
 
@@ -107,6 +119,7 @@ pub struct HostStatusResponse {
     pub moonraker_version: Option<String>,
     pub klippy_state: Option<String>,
     pub printer_state: Option<String>,
+    pub printer_flags: Option<PrinterFlags>,
 }
 
 // Ошибки
@@ -212,7 +225,15 @@ async fn get_printer_objects(host: &str) -> Result<MoonrakerPrinterObjects, Moon
 // Управление принтером
 async fn control_printer(host: &str, action: &str) -> Result<serde_json::Value, MoonrakerError> {
     let client = create_client().await;
-    let url = format!("http://{}:7125/printer/print/{}", host, action);
+    
+    // Правильные URL для Moonraker API
+    let url = match action {
+        "start" => format!("http://{}:7125/printer/print/start", host),
+        "pause" => format!("http://{}:7125/printer/print/pause", host),
+        "cancel" => format!("http://{}:7125/printer/print/cancel", host),
+        "emergency_stop" => format!("http://{}:7125/printer/emergency_stop", host),
+        _ => return Err(MoonrakerError::Api(format!("Unknown action: {}", action)))
+    };
     
     let response = timeout(
         Duration::from_secs(5),
@@ -221,11 +242,14 @@ async fn control_printer(host: &str, action: &str) -> Result<serde_json::Value, 
     .map_err(|_| MoonrakerError::Timeout)?
     .map_err(MoonrakerError::Network)?;
 
-    if response.status().is_success() {
+    let status = response.status();
+
+    if status.is_success() {
         let result: serde_json::Value = response.json().await.map_err(MoonrakerError::Network)?;
         Ok(result)
     } else {
-        Err(MoonrakerError::Api(format!("HTTP {}", response.status())))
+        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+        Err(MoonrakerError::Api(format!("HTTP {}: {}", status, error_text)))
     }
 }
 
@@ -267,30 +291,59 @@ async fn scan_host(ip: &str) -> Option<HostInfo> {
                 Err(_) => ip.to_string(),
             };
 
-            // Определяем статус принтера
-            let printer_state = match get_printer_objects(ip).await {
+            // Получаем printer_flags из API
+            let printer_flags = match get_printer_objects(ip).await {
                 Ok(printer_objects) => {
                     if let Some(print_stats) = printer_objects.result.objects.get("print_stats") {
                         if let Some(state) = print_stats.value.get("state") {
-                            if let Some(state_str) = state.as_str() {
-                                match state_str {
-                                    "printing" => "printing",
-                                    "paused" => "paused",
-                                    "error" => "error",
-                                    "standby" => "standby",
-                                    _ => "ready"
+                            if let Some(state_obj) = state.as_object() {
+                                if let Some(flags) = state_obj.get("flags") {
+                                    if let Some(flags_obj) = flags.as_object() {
+                                        Some(PrinterFlags {
+                                            paused: flags_obj.get("paused").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            printing: flags_obj.get("printing").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            cancelling: flags_obj.get("cancelling").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            error: flags_obj.get("error").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            ready: flags_obj.get("ready").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            operational: flags_obj.get("operational").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            closed_or_error: flags_obj.get("closedOrError").and_then(|v| v.as_bool()).unwrap_or(false),
+                                        })
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
                                 }
                             } else {
-                                "ready"
+                                None
                             }
                         } else {
-                            "ready"
+                            None
                         }
                     } else {
-                        "ready"
+                        None
                     }
                 }
-                Err(_) => "ready"
+                Err(_) => None
+            };
+
+            // Определяем статус принтера на основе флагов (приоритеты от высшего к низшему)
+            let printer_state = if let Some(flags) = &printer_flags {
+                if flags.error || flags.closed_or_error {
+                    "error"
+                } else if flags.cancelling {
+                    "cancelling"
+                } else if flags.printing {
+                    "printing"
+                } else if flags.paused {
+                    "paused"
+                } else if flags.ready && !flags.printing && !flags.paused && !flags.cancelling && !flags.error {
+                    "standby" // fallback только когда все остальные false
+                } else {
+                    "standby"
+                }
+            } else {
+                "standby"
             };
 
             Some(HostInfo {
@@ -304,6 +357,7 @@ async fn scan_host(ip: &str) -> Option<HostInfo> {
                 moonraker_version: Some(server_info.result.moonraker_version),
                 klippy_state: Some(server_info.result.klippy_state),
                 printer_state: Some(printer_state.to_string()),
+                printer_flags,
                 last_seen: Some(chrono::Utc::now().to_rfc3339()),
             })
         }
@@ -399,9 +453,11 @@ async fn control_printer_command(host: String, action: String) -> Result<serde_j
         _ => return Err(format!("Unknown action: {}", action))
     };
     
-    control_printer(&host, action_url)
+    let result = control_printer(&host, action_url)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    
+    Ok(result)
 }
 
 #[tauri::command]
@@ -484,45 +540,73 @@ async fn check_host_status(ip: String) -> Result<HostStatusResponse, String> {
             moonraker_version: None,
             klippy_state: None,
             printer_state: None,
+            printer_flags: None,
         });
     }
     
     // Проверяем Moonraker API
     match check_moonraker_api(&ip).await {
         Ok(server_info) => {
-            // Получаем информацию о принтере
-            let printer_state = match get_printer_objects(&ip).await {
+            // Получаем printer_flags из API
+            let (printer_state, printer_flags) = match get_printer_objects(&ip).await {
                 Ok(printer_objects) => {
                     if let Some(print_stats) = printer_objects.result.objects.get("print_stats") {
                         if let Some(state) = print_stats.value.get("state") {
-                            if let Some(state_str) = state.as_str() {
-                                match state_str {
-                                    "printing" => "printing",
-                                    "paused" => "paused",
-                                    "error" => "error",
-                                    "standby" => "standby",
-                                    _ => "ready"
+                            if let Some(state_obj) = state.as_object() {
+                                if let Some(flags) = state_obj.get("flags") {
+                                    if let Some(flags_obj) = flags.as_object() {
+                                        let flags_struct = PrinterFlags {
+                                            paused: flags_obj.get("paused").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            printing: flags_obj.get("printing").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            cancelling: flags_obj.get("cancelling").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            error: flags_obj.get("error").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            ready: flags_obj.get("ready").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            operational: flags_obj.get("operational").and_then(|v| v.as_bool()).unwrap_or(false),
+                                            closed_or_error: flags_obj.get("closedOrError").and_then(|v| v.as_bool()).unwrap_or(false),
+                                        };
+                                        
+                                        let state = if flags_struct.error || flags_struct.closed_or_error {
+                                            "error"
+                                        } else if flags_struct.cancelling {
+                                            "cancelling"
+                                        } else if flags_struct.printing {
+                                            "printing"
+                                        } else if flags_struct.paused {
+                                            "paused"
+                                        } else if flags_struct.ready && !flags_struct.printing && !flags_struct.paused && !flags_struct.cancelling && !flags_struct.error {
+                                            "standby" // fallback только когда все остальные false
+                                        } else {
+                                            "standby"
+                                        };
+                                        
+                                        (state.to_string(), Some(flags_struct))
+                                    } else {
+                                        ("standby".to_string(), None)
+                                    }
+                                } else {
+                                    ("standby".to_string(), None)
                                 }
                             } else {
-                                "ready"
+                                ("standby".to_string(), None)
                             }
                         } else {
-                            "ready"
+                            ("standby".to_string(), None)
                         }
                     } else {
-                        "ready"
+                        ("standby".to_string(), None)
                     }
                 }
-                Err(_) => "ready"
+                Err(_) => ("standby".to_string(), None)
             };
             
             Ok(HostStatusResponse {
                 success: true,
                 status: "online".to_string(),
-                device_status: Some(printer_state.to_string()),
+                device_status: Some(printer_state.clone()),
                 moonraker_version: Some(server_info.result.moonraker_version),
                 klippy_state: Some(server_info.result.klippy_state),
-                printer_state: Some(printer_state.to_string()),
+                printer_state: Some(printer_state),
+                printer_flags,
             })
         }
         Err(_) => {
@@ -533,6 +617,7 @@ async fn check_host_status(ip: String) -> Result<HostStatusResponse, String> {
                 moonraker_version: None,
                 klippy_state: None,
                 printer_state: None,
+                printer_flags: None,
             })
         }
     }

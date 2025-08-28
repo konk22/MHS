@@ -63,6 +63,15 @@ interface HostInfo {
   moonraker_version?: string
   klippy_state?: string
   printer_state?: string
+  printer_flags?: {
+    paused: boolean
+    printing: boolean
+    cancelling: boolean
+    error: boolean
+    ready: boolean
+    operational: boolean
+    closedOrError: boolean
+  }
   last_seen?: string
 }
 
@@ -101,10 +110,9 @@ interface AppSettings {
   notifications: {
     printing: boolean
     paused: boolean
+    cancelling: boolean
     error: boolean
-    ready: boolean
     standby: boolean
-    offline: boolean
   }
   theme: "light" | "dark" | "system"
   autoRefresh: boolean
@@ -132,10 +140,9 @@ export function NetworkScanner() {
     notifications: {
       printing: true,
       paused: true,
+      cancelling: true,
       error: true,
-      ready: false,
       standby: false,
-      offline: true,
     },
     theme: "system",
     autoRefresh: false,
@@ -156,6 +163,7 @@ export function NetworkScanner() {
   const [webcamRotation, setWebcamRotation] = useState(0)
   const [webcamFlip, setWebcamFlip] = useState({ horizontal: false, vertical: false })
   const [expandedRows, setExpandedRows] = useState(new Set())
+  const [loadingButtons, setLoadingButtons] = useState<Set<string>>(new Set())
 
   const t = useTranslation(settings.language)
 
@@ -192,10 +200,11 @@ export function NetworkScanner() {
       try {
         const parsed = JSON.parse(savedHosts)
         // Обеспечиваем обратную совместимость с существующими данными
-        const hostsWithOriginal = parsed.map((host: any) => ({
-          ...host,
-          original_hostname: host.original_hostname || host.hostname
-        }))
+                  const hostsWithOriginal = parsed.map((host: any) => ({
+            ...host,
+            original_hostname: host.original_hostname || host.hostname,
+            printer_flags: host.printer_flags || null
+          }))
         setHosts(hostsWithOriginal)
         setOnlineHosts(hostsWithOriginal.filter((h: HostInfo) => h.status === 'online').length)
       } catch (error) {
@@ -251,26 +260,41 @@ export function NetworkScanner() {
     localStorage.setItem("networkScanner_language", settings.language)
   }, [settings.language])
 
-  // Auto-refresh effect
+  // Auto-refresh effect - обновление статусов хостов каждую секунду
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null
+    let statusIntervalId: NodeJS.Timeout | null = null
 
-    if (settings.autoRefresh && hosts.length > 0) {
-      console.log(`Auto-refresh enabled: ${settings.refreshInterval} seconds`)
-      
-      // Запускаем первый refresh сразу
+    if (hosts.length > 0) {
+      // Запускаем первый refresh статусов сразу
       refreshHostsStatus()
       
-      // Устанавливаем интервал
-      intervalId = setInterval(() => {
+      // Устанавливаем интервал обновления статусов каждую секунду
+      statusIntervalId = setInterval(() => {
         refreshHostsStatus()
+      }, 1000) // 1 секунда
+    }
+
+    return () => {
+      if (statusIntervalId) {
+        clearInterval(statusIntervalId)
+      }
+    }
+  }, [hosts.length])
+
+  // Auto-refresh effect - повторное сканирование сети
+  useEffect(() => {
+    let networkScanIntervalId: NodeJS.Timeout | null = null
+
+    if (settings.autoRefresh && hosts.length > 0) {
+      // Устанавливаем интервал повторного сканирования сети
+      networkScanIntervalId = setInterval(() => {
+        handleScan(true) // true = автоматическое сканирование
       }, settings.refreshInterval * 1000)
     }
 
     return () => {
-      if (intervalId) {
-        console.log('Auto-refresh disabled')
-        clearInterval(intervalId)
+      if (networkScanIntervalId) {
+        clearInterval(networkScanIntervalId)
       }
     }
   }, [settings.autoRefresh, settings.refreshInterval, hosts.length])
@@ -288,79 +312,118 @@ export function NetworkScanner() {
     }))
   }
 
-  const handleScan = async () => {
-    setIsScanning(true)
-    setScanProgress(0)
-    setScanStatus(t.scanningPorts || "Scanning ports...")
+  const handleScan = async (isAutoScan: boolean = false) => {
+    if (!isAutoScan) {
+      setIsScanning(true)
+      setScanProgress(0)
+      setScanStatus(t.scanningPorts || "Scanning ports...")
+    }
     
     try {
       const enabledSubnets = settings.subnets.filter(s => s.enabled)
       if (enabledSubnets.length === 0) {
-        alert(t.noSubnetsEnabled || 'No subnets enabled for scanning')
-        setIsScanning(false)
+        if (!isAutoScan) {
+          alert(t.noSubnetsEnabled || 'No subnets enabled for scanning')
+          setIsScanning(false)
+        }
         return
       }
 
-      // Показываем прогресс сканирования портов
-      setScanProgress(10)
-      
-      // Имитируем прогресс сканирования портов
-      const progressInterval = setInterval(() => {
-        setScanProgress(prev => {
-          if (prev < 40) return prev + 5
-          return prev
-        })
-      }, 100)
-      
-      const result = await invokeTauri('scan_network', { subnets: enabledSubnets })
-      
-      clearInterval(progressInterval)
-      setScanProgress(80)
-      setScanStatus(t.scanningAPI || "Checking API...")
-      
-      console.log('Scan result:', result)
-      
-      if (result.hosts) {
-        console.log('Found hosts:', result.hosts)
+      if (!isAutoScan) {
+        // Показываем прогресс сканирования портов только для ручного сканирования
+        setScanProgress(10)
         
-        // Сохраняем пользовательские имена при повторном сканировании
-        setHosts(prevHosts => {
-          const newHosts = result.hosts.map((newHost: any) => {
-            // Ищем существующий хост с таким же IP
-            const existingHost = prevHosts.find(h => h.ip_address === newHost.ip_address)
+        // Имитируем прогресс сканирования портов
+        const progressInterval = setInterval(() => {
+          setScanProgress(prev => {
+            if (prev < 40) return prev + 5
+            return prev
+          })
+        }, 100)
+        
+        const result = await invokeTauri('scan_network', { subnets: enabledSubnets })
+        
+        clearInterval(progressInterval)
+        setScanProgress(80)
+        setScanStatus(t.scanningAPI || "Checking API...")
+        
+        if (result.hosts) {
+          // Сохраняем пользовательские имена при повторном сканировании
+          setHosts(prevHosts => {
+            const newHosts = result.hosts.map((newHost: any) => {
+              // Ищем существующий хост с таким же IP
+              const existingHost = prevHosts.find(h => h.ip_address === newHost.ip_address)
+              
+              if (existingHost) {
+                // Если хост уже существует, сохраняем пользовательское имя
+                return {
+                  ...newHost,
+                  original_hostname: newHost.hostname, // Сохраняем оригинальное имя с сервера
+                  hostname: existingHost.hostname !== existingHost.original_hostname 
+                    ? existingHost.hostname // Сохраняем пользовательское имя
+                    : newHost.hostname // Используем новое имя, если пользователь не изменял
+                }
+              } else {
+                // Новый хост
+                return {
+                  ...newHost,
+                  original_hostname: newHost.hostname
+                }
+              }
+            })
             
-            if (existingHost) {
-              // Если хост уже существует, сохраняем пользовательское имя
-              return {
-                ...newHost,
-                original_hostname: newHost.hostname, // Сохраняем оригинальное имя с сервера
-                hostname: existingHost.hostname !== existingHost.original_hostname 
-                  ? existingHost.hostname // Сохраняем пользовательское имя
-                  : newHost.hostname // Используем новое имя, если пользователь не изменял
-              }
-            } else {
-              // Новый хост
-              return {
-                ...newHost,
-                original_hostname: newHost.hostname
-              }
-            }
+            return newHosts
           })
           
-          return newHosts
-        })
+          setOnlineHosts(result.online_hosts || 0)
+        }
         
-        setOnlineHosts(result.online_hosts || 0)
-      }
-      
-      setScanProgress(100)
-      setScanStatus("")
+        setScanProgress(100)
+        setScanStatus("")
+              } else {
+          // Для автоматического сканирования - тихое обновление
+          const result = await invokeTauri('scan_network', { subnets: enabledSubnets })
+          
+          if (result.hosts) {
+            setHosts(prevHosts => {
+              const newHosts = result.hosts.map((newHost: any) => {
+                const existingHost = prevHosts.find(h => h.ip_address === newHost.ip_address)
+                
+                if (existingHost) {
+                  // Проверяем, изменил ли пользователь имя
+                  const hasCustomName = existingHost.hostname !== existingHost.original_hostname
+                  
+                  return {
+                    ...newHost,
+                    original_hostname: newHost.hostname, // Обновляем оригинальное имя
+                    hostname: hasCustomName ? existingHost.hostname : newHost.hostname, // Сохраняем пользовательское или используем новое
+                    printer_flags: newHost.printer_flags || existingHost.printer_flags
+                  }
+                } else {
+                  return {
+                    ...newHost,
+                    original_hostname: newHost.hostname,
+                    printer_flags: newHost.printer_flags
+                  }
+                }
+              })
+              
+              return newHosts
+            })
+            
+            setOnlineHosts(result.online_hosts || 0)
+          }
+        }
     } catch (error) {
       console.error('Scan failed:', error)
-      alert('Scan failed: ' + (error as Error).message)
+      if (!isAutoScan) {
+        alert('Scan failed: ' + (error as Error).message)
+      }
     } finally {
-      setIsScanning(false)
-      setScanStatus("")
+      if (!isAutoScan) {
+        setIsScanning(false)
+        setScanStatus("")
+      }
     }
   }
 
@@ -388,40 +451,51 @@ export function NetworkScanner() {
     const host = hosts.find(h => h.id === hostId)
     if (!host) return
 
+    const buttonKey = `${hostId}-${action}`
+
     try {
-      let command = ''
+      // Преобразуем действие в правильный формат для API
+      let apiAction = ''
       switch (action) {
         case 'Start':
-          command = 'control_printer_command'
+          apiAction = 'start'
           break
         case 'Pause':
-          command = 'control_printer_command'
+          apiAction = 'pause'
           break
         case 'Stop':
-          command = 'control_printer_command'
+          apiAction = 'cancel' // Moonraker использует 'cancel' для остановки
           break
         case 'Emergency Stop':
-          command = 'control_printer_command'
+          apiAction = 'emergency_stop'
           break
         default:
+          console.error(`Unknown action: ${action}`)
           return
       }
 
-      const result = await invokeTauri(command, { 
+      setLoadingButtons(prev => new Set([...prev, buttonKey]))
+      
+      const result = await invokeTauri('control_printer_command', { 
         host: host.ip_address, 
-        action: action.toLowerCase().replace(' ', '_') 
+        action: apiAction
       })
       
-      console.log(`${action} result:`, result)
+      // Убираем состояние загрузки
+      setLoadingButtons(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(buttonKey)
+        return newSet
+      })
       
-      // Refresh host status
-      const updatedHost = await invokeTauri('get_host_info', { host: host.ip_address })
-      if (updatedHost) {
-        setHosts(prev => prev.map(h => h.id === hostId ? { ...h, ...updatedHost } : h))
-      }
     } catch (error) {
       console.error(`${action} failed:`, error)
       alert(`${action} failed: ${(error as Error).message}`)
+      setLoadingButtons(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(buttonKey)
+        return newSet
+      })
     }
   }
 
@@ -499,8 +573,6 @@ export function NetworkScanner() {
     if (hosts.length === 0) return
 
     try {
-      console.log('Auto-refresh: Checking status of', hosts.length, 'hosts')
-      
       // Обновляем состояние каждого хоста
       const updatedHosts = await Promise.all(
         hosts.map(async (host) => {
@@ -511,17 +583,26 @@ export function NetworkScanner() {
             if (result.success) {
               return {
                 ...host,
-                status: result.status,
+                // Сохраняем пользовательские данные
+                hostname: host.hostname, // Сохраняем пользовательское имя
+                original_hostname: host.original_hostname, // Сохраняем оригинальное имя
+                // Обновляем только техническую информацию
+                status: result.status as "online" | "offline",
                 device_status: result.device_status || host.device_status,
                 moonraker_version: result.moonraker_version || host.moonraker_version,
                 klippy_state: result.klippy_state || host.klippy_state,
                 printer_state: result.printer_state || host.printer_state,
+                printer_flags: result.printer_flags || host.printer_flags,
                 last_seen: new Date().toISOString()
               }
             } else {
               // Хост недоступен
               return {
                 ...host,
+                // Сохраняем пользовательские данные
+                hostname: host.hostname, // Сохраняем пользовательское имя
+                original_hostname: host.original_hostname, // Сохраняем оригинальное имя
+                // Обновляем только статус
                 status: 'offline',
                 device_status: 'offline',
                 last_seen: new Date().toISOString()
@@ -532,6 +613,10 @@ export function NetworkScanner() {
             // В случае ошибки помечаем хост как оффлайн
             return {
               ...host,
+              // Сохраняем пользовательские данные
+              hostname: host.hostname, // Сохраняем пользовательское имя
+              original_hostname: host.original_hostname, // Сохраняем оригинальное имя
+              // Обновляем только статус
               status: 'offline',
               device_status: 'offline',
               last_seen: new Date().toISOString()
@@ -540,21 +625,69 @@ export function NetworkScanner() {
         })
       )
 
-      setHosts(updatedHosts)
+      // Обновляем хосты, сохраняя пользовательские имена
+      setHosts(prevHosts => 
+        prevHosts.map(prevHost => {
+          const updatedHost = updatedHosts.find(h => h.id === prevHost.id)
+          if (updatedHost) {
+            // Проверяем, изменил ли пользователь имя
+            const hasCustomName = prevHost.hostname !== prevHost.original_hostname
+            
+            return {
+              ...prevHost,
+              status: updatedHost.status as "online" | "offline",
+              device_status: updatedHost.device_status,
+              moonraker_version: updatedHost.moonraker_version,
+              klippy_state: updatedHost.klippy_state,
+              printer_state: updatedHost.printer_state,
+              printer_flags: updatedHost.printer_flags,
+              last_seen: updatedHost.last_seen,
+              // Сохраняем пользовательское имя, если оно было изменено
+              hostname: hasCustomName ? prevHost.hostname : updatedHost.hostname,
+              original_hostname: updatedHost.original_hostname
+            } as HostInfo
+          }
+          return prevHost
+        })
+      )
       setOnlineHosts(updatedHosts.filter(h => h.status === 'online').length)
-      
-      console.log('Auto-refresh completed. Online hosts:', updatedHosts.filter(h => h.status === 'online').length)
     } catch (error) {
       console.error('Auto-refresh failed:', error)
     }
+  }
+
+  const getPrinterStatus = (host: HostInfo): string => {
+    if (host.status === 'offline') {
+      return 'offline'
+    }
+    
+    if (host.printer_flags) {
+      const flags = host.printer_flags
+      
+      // Приоритеты статусов (от высшего к низшему)
+      if (flags.error || flags.closedOrError) {
+        return 'error'
+      } else if (flags.cancelling) {
+        return 'cancelling'
+      } else if (flags.printing) {
+        return 'printing'
+      } else if (flags.paused) {
+        return 'paused'
+      } else if (flags.ready && !flags.printing && !flags.paused && !flags.cancelling && !flags.error) {
+        return 'standby' // fallback только когда все остальные false
+      }
+    }
+    
+    // Fallback к старому device_status
+    return host.device_status || 'standby'
   }
 
   const getStatusBadge = (deviceStatus: string) => {
     const statusConfig = {
       printing: { color: "bg-blue-100 text-blue-800", icon: Activity },
       paused: { color: "bg-yellow-100 text-yellow-800", icon: Pause },
+      cancelling: { color: "bg-orange-100 text-orange-800", icon: Square },
       error: { color: "bg-red-100 text-red-800", icon: AlertTriangle },
-      ready: { color: "bg-green-100 text-green-800", icon: Play },
       standby: { color: "bg-gray-100 text-gray-800", icon: Clock },
       offline: { color: "bg-red-100 text-red-800", icon: WifiOff },
     }
@@ -791,6 +924,7 @@ export function NetworkScanner() {
                           <SelectContent>
                             <SelectItem value="en">English</SelectItem>
                             <SelectItem value="ru">Русский</SelectItem>
+                            <SelectItem value="de">Deutsch</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -859,7 +993,7 @@ export function NetworkScanner() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4 flex-wrap">
-              <Button onClick={handleScan} disabled={isScanning} className="bg-primary hover:bg-primary/90">
+                              <Button onClick={() => handleScan(false)} disabled={isScanning} className="bg-primary hover:bg-primary/90">
                 {isScanning ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -900,7 +1034,7 @@ export function NetworkScanner() {
                 {settings.autoRefresh && hosts.length > 0 && (
                   <div className="flex items-center gap-1 text-sm text-green-600">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span>{t.autoRefreshActive}</span>
+                    <span>{t.networkScanActive.replace('{interval}', settings.refreshInterval.toString())}</span>
                   </div>
                 )}
               </div>
@@ -988,7 +1122,7 @@ export function NetworkScanner() {
                           {host.ip_address}
                         </Button>
                       </TableCell>
-                      <TableCell>{getStatusBadge(host.device_status)}</TableCell>
+                                              <TableCell>{getStatusBadge(getPrinterStatus(host))}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -1027,37 +1161,64 @@ export function NetworkScanner() {
                               <Button
                                 size="sm"
                                 onClick={() => handleAPIAction("Start", host.id)}
-                                disabled={host.status !== "online"}
-                                className="bg-green-600 hover:bg-green-700"
+                                disabled={host.status !== "online" || loadingButtons.has(`${host.id}-Start`)}
+                                className={`bg-green-600 hover:bg-green-700 transition-all duration-200 ${
+                                  loadingButtons.has(`${host.id}-Start`) ? 'opacity-75 scale-95' : ''
+                                }`}
                               >
-                                <Play className="h-4 w-4 mr-1" />
+                                {loadingButtons.has(`${host.id}-Start`) ? (
+                                  <div className="animate-spin h-4 w-4 mr-1 border-2 border-white border-t-transparent rounded-full" />
+                                ) : (
+                                  <Play className="h-4 w-4 mr-1" />
+                                )}
                                 {t.start}
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleAPIAction("Pause", host.id)}
-                                disabled={host.status !== "online"}
+                                disabled={host.status !== "online" || loadingButtons.has(`${host.id}-Pause`)}
+                                className={`transition-all duration-200 ${
+                                  loadingButtons.has(`${host.id}-Pause`) ? 'opacity-75 scale-95' : ''
+                                }`}
                               >
-                                <Pause className="h-4 w-4 mr-1" />
+                                {loadingButtons.has(`${host.id}-Pause`) ? (
+                                  <div className="animate-spin h-4 w-4 mr-1 border-2 border-current border-t-transparent rounded-full" />
+                                ) : (
+                                  <Pause className="h-4 w-4 mr-1" />
+                                )}
                                 {t.pause}
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleAPIAction("Stop", host.id)}
-                                disabled={host.status !== "online"}
+                                disabled={host.status !== "online" || loadingButtons.has(`${host.id}-Stop`)}
+                                className={`transition-all duration-200 ${
+                                  loadingButtons.has(`${host.id}-Stop`) ? 'opacity-75 scale-95' : ''
+                                }`}
                               >
-                                <Square className="h-4 w-4 mr-1" />
+                                {loadingButtons.has(`${host.id}-Stop`) ? (
+                                  <div className="animate-spin h-4 w-4 mr-1 border-2 border-current border-t-transparent rounded-full" />
+                                ) : (
+                                  <Square className="h-4 w-4 mr-1" />
+                                )}
                                 {t.stop}
                               </Button>
                               <Button
                                 size="sm"
                                 variant="destructive"
                                 onClick={() => handleAPIAction("Emergency Stop", host.id)}
-                                disabled={host.status !== "online"}
+                                disabled={host.status !== "online" || loadingButtons.has(`${host.id}-Emergency Stop`)}
+                                className={`transition-all duration-200 ${
+                                  loadingButtons.has(`${host.id}-Emergency Stop`) ? 'opacity-75 scale-95' : ''
+                                }`}
                               >
-                                <AlertTriangle className="h-4 w-4 mr-1" />
+                                {loadingButtons.has(`${host.id}-Emergency Stop`) ? (
+                                  <div className="animate-spin h-4 w-4 mr-1 border-2 border-white border-t-transparent rounded-full" />
+                                ) : (
+                                  <AlertTriangle className="h-4 w-4 mr-1" />
+                                )}
                                 {t.emergencyStop}
                               </Button>
                             </div>

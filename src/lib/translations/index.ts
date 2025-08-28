@@ -1,0 +1,111 @@
+import { en } from './en'
+import { ru } from './ru'
+import { de } from './de'
+
+export interface Translations {
+  // Header
+  networkScanner: string
+  discoverHosts: string
+  settings: string
+
+  // Stats Cards
+  totalHosts: string
+  discoveredInNetwork: string
+  onlineHosts: string
+  respondingToAPI: string
+  activeSubnets: string
+  networksBeingScanned: string
+  scanRanges: string
+  activeScanningRanges: string
+  none: string
+
+  // Scan Controls
+  networkScan: string
+  scanConfiguredSubnet: string
+  scanning: string
+  scanningPorts: string
+  scanningAPI: string
+  startScan: string
+  autoRefresh: string
+
+  // Table Headers
+  actions: string
+  hostname: string
+  ipAddress: string
+  status: string
+  ssh: string
+  webcam: string
+  delete: string
+
+  // Expanded Row
+  apiControls: string
+  start: string
+  pause: string
+  stop: string
+  emergencyStop: string
+
+  // Settings Dialog
+  applicationSettings: string
+  configureNetworkScanning: string
+  network: string
+  notifications: string
+  about: string
+  language: string
+
+  // Network Tab
+  subnetRanges: string
+  addSubnet: string
+  networkName: string
+  scanType: string
+  apiResponseScan: string
+  pingScan: string
+  portScan: string
+
+  // SSH Tab
+  defaultSSHUsername: string
+
+  // Notifications Tab
+  enableNotificationsFor: string
+  printing: string
+  paused: string
+  cancelling: string
+  error: string
+  standby: string
+
+  // About Tab
+  version: string
+  powerfulNetworkTool: string
+
+  // Language Tab
+  selectLanguage: string
+
+  // Table Content
+  discoveredHosts: string
+  hostsFoundInNetwork: string
+  newNetwork: string
+  mainNetwork: string
+  guestNetwork: string
+  noSubnetsEnabled: string
+  
+  // Hostname Management
+  resetHostname: string
+  
+  // Auto-refresh
+  autoRefreshActive: string
+  networkScanActive: string
+}
+
+export const translations: Record<string, Translations> = {
+  en,
+  ru,
+  de,
+}
+
+export function useTranslation(language: string): Translations {
+  return translations[language] || translations.en
+}
+
+// Re-export individual language files
+export { en } from './en'
+export { ru } from './ru'
+export { de } from './de'
