@@ -1,4 +1,4 @@
-name: Build & Release for macOS ARM + x86, Windows x86 + ARM
+name: Build & Release for macOS ARM + x86, Windows x86 + ARM, Linux x86 + ARM
 on:
   push:
     branches: [ main, develop ]
@@ -227,13 +227,111 @@ jobs:
           name: moonraker-host-scanner-windows-arm
           path: src-tauri/target/aarch64-pc-windows-msvc/release/bundle/
           retention-days: 30
+  build-linux-x86:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install Rust target for Linux x86
+        run: rustup target add x86_64-unknown-linux-gnu
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+          pnpm install
+      - name: Build Next.js
+        run: pnpm build
+      - name: Build Tauri application for Linux x86
+        run: pnpm tauri build --target x86_64-unknown-linux-gnu
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Linux x86 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-x86
+          path: src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/
+          retention-days: 30
+  build-linux-arm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install Rust target for Linux ARM
+        run: rustup target add aarch64-unknown-linux-gnu
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+          pnpm install
+      - name: Build Tauri application for Linux ARM
+        run: pnpm tauri build --target aarch64-unknown-linux-gnu
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Linux ARM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-arm
+          path: src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/
+          retention-days: 30
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    needs: [build-macos-arm, build-macos-x86, build-windows-x86, build-windows-arm]
+    needs: [build-macos-arm, build-macos-x86, build-windows-x86, build-windows-arm, build-linux-x86, build-linux-arm]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -257,6 +355,16 @@ jobs:
         with:
           name: moonraker-host-scanner-windows-arm
           path: ./artifacts/windows-arm
+      - name: Download Linux x86 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-x86
+          path: ./artifacts/linux-x86
+      - name: Download Linux ARM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-arm
+          path: ./artifacts/linux-arm
       - name: Debug artifacts structure
         run: |
           echo "Artifacts structure:"
@@ -264,9 +372,9 @@ jobs:
       - name: Collect artifacts
         id: collect_artifacts
         run: |
-          files=$(find ./artifacts -type f \( -name "*.dmg" -o -name "*.exe" \) | tr '\n' ',' | sed 's/,$//')
+          files=$(find ./artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.deb" -o -name "*.AppImage" \) | tr '\n' ',' | sed 's/,$//')
           if [ -z "$files" ]; then
-            echo "❌ No .dmg or .exe files found!"
+            echo "❌ No .dmg, .exe, .deb, or .AppImage files found!"
             exit 1
           fi
           echo "FILES=$files" >> $GITHUB_ENV
@@ -276,7 +384,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }} (macOS ARM + x86, Windows x86 + ARM)
+          name: Release ${{ github.ref_name }} (macOS ARM + x86, Windows x86 + ARM, Linux x86 + ARM)
           draft: false
           prerelease: false
           body: |
@@ -290,6 +398,10 @@ jobs:
             - x86_64 (`.exe` for Intel/AMD PCs)
             - ARM64 (`.exe` for ARM-based Windows devices)
 
+            ### 🐧 Linux Builds
+            - x86_64 (`.deb` and `.AppImage` for Intel/AMD PCs)
+            - ARM64 (`.deb` and `.AppImage` for ARM-based devices)
+
             ### 📦 Installation
             #### macOS
             1. Download the `.dmg` file
@@ -298,6 +410,10 @@ jobs:
             #### Windows
             1. Download the `.exe` file
             2. Run the installer and follow the instructions
+            3. Launch Moonraker Host Scanner
+            #### Linux
+            1. For `.deb`: Download the `.deb` file and install with `sudo dpkg -i <file>.deb` (Ubuntu/Debian)
+            2. For `.AppImage`: Download the `.AppImage` file, make it executable with `chmod +x <file>.AppImage`, and run it
             3. Launch Moonraker Host Scanner
 
             ### 🔧 Features
