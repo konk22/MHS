@@ -128,7 +128,19 @@ jobs:
       - name: Debug artifacts structure
         run: |
           echo "Artifacts structure:"
-          find ./artifacts -type f -name "*.dmg" -o -name "*.app" -o -name "*.tar.gz" | head -10
+          ls -R ./artifacts/macos-arm || true
+
+      - name: Collect DMG artifacts
+        id: collect_dmg
+        run: |
+          files=$(find ./artifacts/macos-arm -type f -name "*.dmg")
+          if [ -z "$files" ]; then
+            echo "❌ No .dmg files found!"
+            exit 1
+          fi
+          echo "FILES=$files" >> $GITHUB_ENV
+          echo "Found DMG files:"
+          echo "$files"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -164,10 +176,6 @@ jobs:
             ### 🐛 Bug Reports
             
             If you encounter any issues, please report them on GitHub.
-          files: |
-            artifacts/macos-arm/**/*.dmg
-            artifacts/macos-arm/**/*.app
-            artifacts/macos-arm/**/*.tar.gz
-          fail_on_unmatched_files: false
+          files: ${{ env.FILES }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
