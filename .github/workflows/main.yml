@@ -202,6 +202,7 @@ jobs:
             echo "❌ No .dmg files found!"
             exit 1
           fi
+          files_escaped=$(printf '%q ' $files)
           echo "FILES=$files" >> $GITHUB_ENV
           echo "Found DMG files:"
           echo "$files"
