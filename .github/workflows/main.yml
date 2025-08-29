@@ -1,4 +1,4 @@
-name: Build & Release for macOS ARM
+name: Build & Release for macOS ARM + x86
 
 on:
   push:
@@ -107,13 +107,71 @@ jobs:
           path: src-tauri/target/aarch64-apple-darwin/release/bundle/
           retention-days: 30
 
+  build-macos-x86:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      packages: write
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install Rust target for macOS x86
+        run: rustup target add x86_64-apple-darwin
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build Next.js
+        run: pnpm build
+
+      - name: Build Tauri application for macOS x86
+        run: pnpm tauri build --target x86_64-apple-darwin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS x86 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-macos-x86
+          path: src-tauri/target/x86_64-apple-darwin/release/bundle/
+          retention-days: 30
+
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    needs: build-macos-arm
+    needs: [build-macos-arm, build-macos-x86]
 
     steps:
       - name: Checkout code
@@ -125,15 +183,21 @@ jobs:
           name: moonraker-host-scanner-macos-arm
           path: ./artifacts/macos-arm
 
+      - name: Download macOS x86 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: moonraker-host-scanner-macos-x86
+          path: ./artifacts/macos-x86
+
       - name: Debug artifacts structure
         run: |
           echo "Artifacts structure:"
-          ls -R ./artifacts/macos-arm || true
+          ls -R ./artifacts || true
 
       - name: Collect DMG artifacts
         id: collect_dmg
         run: |
-          files=$(find ./artifacts/macos-arm -type f -name "*.dmg")
+          files=$(find ./artifacts -type f -name "*.dmg")
           if [ -z "$files" ]; then
             echo "❌ No .dmg files found!"
             exit 1
@@ -146,21 +210,22 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }} (macOS ARM)
+          name: Release ${{ github.ref_name }} (macOS ARM + x86)
           draft: false
           prerelease: false
           body: |
             ## Moonraker Host Scanner v${{ github.ref_name }}
             
-            ### 🍎 macOS ARM64 Build
+            ### 🍎 macOS Builds
             
-            This release contains the macOS ARM64 (Apple Silicon) build of Moonraker Host Scanner.
+            - ARM64 (`.dmg` for Apple Silicon)
+            - x86_64 (`.dmg` for Intel Macs)
             
             ### 📦 Installation
             
             1. Download the `.dmg` file
             2. Open the DMG and drag the app to Applications
-            3. Launch Moonraker Host Scanner
+            3. Launch Moonraker Host Scanner (ignore quarantine warning or remove it manually)
             
             ### 🔧 Features
             

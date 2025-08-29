@@ -4,6 +4,11 @@
 
 A modern Tauri-based desktop application that automatically discovers Moonraker-enabled 3D printers on your network, provides real-time status monitoring, and offers direct control over your printers.
 
+### Для запуска на MacOS необходимо
+```
+xattr -rd com.apple.quarantine /Applications/Moonraker\ Host\ Scanner.app
+```
+
 ## ✨ Features
 
 ### 🔍 **Network Discovery**
