@@ -197,15 +197,15 @@ jobs:
       - name: Collect DMG artifacts
         id: collect_dmg
         run: |
-          files=$(find ./artifacts -type f -name "*.dmg")
-          if [ -z "$files" ]; then
+          find ./artifacts -type f -name "*.dmg" > dmg_files.txt
+          if [ ! -s dmg_files.txt ]; then
             echo "❌ No .dmg files found!"
             exit 1
           fi
-          files_escaped=$(printf '%q ' $files)
-          echo "FILES=$files" >> $GITHUB_ENV
+          # В GITHUB_ENV записываем через переносы строк
+          echo "FILES=$(cat dmg_files.txt)" >> $GITHUB_ENV
           echo "Found DMG files:"
-          echo "$files"
+          cat dmg_files.txt
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
