@@ -99,6 +99,7 @@ interface HostInfo {
     closedOrError: boolean
   }
   last_seen?: string
+  failed_attempts?: number // Counter for consecutive failed attempts
 }
 
 interface MoonrakerServerInfo {
@@ -391,19 +392,21 @@ export function NetworkScanner() {
               const existingHost = prevHosts.find(h => h.ip_address === newHost.ip_address)
               
               if (existingHost) {
-                // Если хост уже существует, сохраняем пользовательское имя
+                // Если хост уже существует, сохраняем пользовательское имя и счетчик неудачных попыток
                 return {
                   ...newHost,
                   original_hostname: newHost.hostname, // Сохраняем оригинальное имя с сервера
                   hostname: existingHost.hostname !== existingHost.original_hostname 
                     ? existingHost.hostname // Сохраняем пользовательское имя
-                    : newHost.hostname // Используем новое имя, если пользователь не изменял
+                    : newHost.hostname, // Используем новое имя, если пользователь не изменял
+                  failed_attempts: existingHost.failed_attempts || 0 // Сохраняем счетчик неудачных попыток
                 }
               } else {
                 // Новый хост
                 return {
                   ...newHost,
-                  original_hostname: newHost.hostname
+                  original_hostname: newHost.hostname,
+                  failed_attempts: 0 // Инициализируем счетчик неудачных попыток
                 }
               }
             })
@@ -432,12 +435,14 @@ export function NetworkScanner() {
                   return {
                     ...newHost,
                     original_hostname: newHost.hostname, // Обновляем оригинальное имя
-                    hostname: hasCustomName ? existingHost.hostname : newHost.hostname // Сохраняем пользовательское или используем новое
+                    hostname: hasCustomName ? existingHost.hostname : newHost.hostname, // Сохраняем пользовательское или используем новое
+                    failed_attempts: existingHost.failed_attempts || 0 // Сохраняем счетчик неудачных попыток
                   }
                 } else {
                   return {
                     ...newHost,
-                    original_hostname: newHost.hostname
+                    original_hostname: newHost.hostname,
+                    failed_attempts: 0 // Инициализируем счетчик неудачных попыток
                   }
                 }
               })
@@ -615,6 +620,7 @@ export function NetworkScanner() {
             const result = await invokeTauri('check_host_status', { ip: host.ip_address })
             
             if (result.success) {
+              // Хост ответил успешно - сбрасываем счетчик неудачных попыток
               return {
                 ...host,
                 // Сохраняем пользовательские данные
@@ -627,33 +633,48 @@ export function NetworkScanner() {
                 klippy_state: result.klippy_state || host.klippy_state,
                 printer_state: result.printer_state || host.printer_state,
                 printer_flags: result.printer_flags || host.printer_flags,
-                last_seen: new Date().toISOString()
+                last_seen: new Date().toISOString(),
+                failed_attempts: 0 // Сбрасываем счетчик неудачных попыток
               }
             } else {
-              // Хост недоступен
+              // Хост не ответил - увеличиваем счетчик неудачных попыток
+              const currentFailedAttempts = host.failed_attempts || 0
+              const newFailedAttempts = currentFailedAttempts + 1
+              
+              // Помечаем как оффлайн только после 3 неудачных попыток подряд
+              const shouldMarkOffline = newFailedAttempts >= 3
+              
               return {
                 ...host,
                 // Сохраняем пользовательские данные
                 hostname: host.hostname, // Сохраняем пользовательское имя
                 original_hostname: host.original_hostname, // Сохраняем оригинальное имя
-                // Обновляем только статус
-                status: 'offline',
-                device_status: 'offline',
-                last_seen: new Date().toISOString()
+                // Обновляем статус в зависимости от количества неудачных попыток
+                status: shouldMarkOffline ? 'offline' : 'online',
+                device_status: shouldMarkOffline ? 'offline' : host.device_status,
+                last_seen: new Date().toISOString(),
+                failed_attempts: newFailedAttempts
               }
             }
           } catch (error) {
             console.error(`Failed to check status for host ${host.ip_address}:`, error)
-            // В случае ошибки помечаем хост как оффлайн
+            // В случае ошибки увеличиваем счетчик неудачных попыток
+            const currentFailedAttempts = host.failed_attempts || 0
+            const newFailedAttempts = currentFailedAttempts + 1
+            
+            // Помечаем как оффлайн только после 3 неудачных попыток подряд
+            const shouldMarkOffline = newFailedAttempts >= 3
+            
             return {
               ...host,
               // Сохраняем пользовательские данные
               hostname: host.hostname, // Сохраняем пользовательское имя
               original_hostname: host.original_hostname, // Сохраняем оригинальное имя
-              // Обновляем только статус
-              status: 'offline',
-              device_status: 'offline',
-              last_seen: new Date().toISOString()
+              // Обновляем статус в зависимости от количества неудачных попыток
+              status: shouldMarkOffline ? 'offline' : 'online',
+              device_status: shouldMarkOffline ? 'offline' : host.device_status,
+              last_seen: new Date().toISOString(),
+              failed_attempts: newFailedAttempts
             }
           }
         })
@@ -676,6 +697,7 @@ export function NetworkScanner() {
                       printer_state: updatedHost.printer_state,
                       printer_flags: updatedHost.printer_flags,
                       last_seen: updatedHost.last_seen,
+                      failed_attempts: updatedHost.failed_attempts,
                       // Сохраняем пользовательское имя, если оно было изменено
                       hostname: hasCustomName ? prevHost.hostname : updatedHost.hostname,
                       original_hostname: updatedHost.original_hostname
@@ -1023,46 +1045,7 @@ export function NetworkScanner() {
           </div>
         </div>
 
-        {/* Updated Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t.onlineHosts}</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{onlineHosts}</div>
-              <p className="text-xs text-muted-foreground">{t.respondingToAPI}</p>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t.activeSubnets}</CardTitle>
-              <Network className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{settings.subnets.filter((s) => s.enabled).length}</div>
-              <p className="text-xs text-muted-foreground">{t.networksBeingScanned}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t.scanRanges}</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm font-bold text-foreground">
-                {settings.subnets
-                  .filter((s) => s.enabled)
-                  .map((s) => s.range)
-                  .join(", ") || t.none}
-              </div>
-              <p className="text-xs text-muted-foreground">{t.activeScanningRanges}</p>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Scan Controls */}
         <Card>
