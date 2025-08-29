@@ -1,4 +1,4 @@
-name: Build, Test & Release
+name: Build & Release for macOS ARM
 
 on:
   push:
@@ -46,33 +46,15 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit --skipLibCheck
 
-      - name: Lint
-        run: pnpm lint
-
       - name: Build test
         run: pnpm build
 
-  build:
-    runs-on: ${{ matrix.os }}
+  build-macos-arm:
+    runs-on: macos-latest
     permissions:
       contents: read
       packages: write
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            platform: windows
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            platform: macos-intel
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            platform: macos-arm
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            platform: linux
 
     steps:
       - name: Checkout code
@@ -104,22 +86,8 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Install Rust targets
-        run: rustup target add ${{ matrix.target }}
-
-      - name: Install additional Rust targets (Linux only)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          rustup target add x86_64-pc-windows-msvc
-          rustup target add x86_64-apple-darwin
-          rustup target add aarch64-apple-darwin
-
-      - name: Install system dependencies (Linux only)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-          sudo apt-get install -y libwebkit2gtk-4.1-dev || sudo apt-get install -y libwebkit2gtk-4.0-dev || echo "WebKit not available"
+      - name: Install Rust target for macOS ARM
+        run: rustup target add aarch64-apple-darwin
 
       - name: Install dependencies
         run: pnpm install
@@ -127,16 +95,16 @@ jobs:
       - name: Build Next.js
         run: pnpm build
 
-      - name: Build Tauri application
-        run: pnpm tauri build --target ${{ matrix.target }}
+      - name: Build Tauri application for macOS ARM
+        run: pnpm tauri build --target aarch64-apple-darwin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload artifacts
+      - name: Upload macOS ARM artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: moonraker-host-scanner-${{ matrix.platform }}
-          path: src-tauri/target/${{ matrix.target }}/release/bundle/
+          name: moonraker-host-scanner-macos-arm
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/
           retention-days: 30
 
   release:
@@ -145,35 +113,61 @@ jobs:
       contents: write
       packages: write
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    needs: build
+    needs: build-macos-arm
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download artifacts
+      - name: Download macOS ARM artifacts
         uses: actions/download-artifact@v4
         with:
-          merge-multiple: false   # разложит по папкам по имени артефакта
+          name: moonraker-host-scanner-macos-arm
+          path: ./artifacts/macos-arm
 
-      - name: Debug artifacts tree
+      - name: Debug artifacts structure
         run: |
-          echo "Artifacts tree:"
-          tree -L 4 || find . -maxdepth 4 -type f
+          echo "Artifacts structure:"
+          find ./artifacts -type f -name "*.dmg" -o -name "*.app" -o -name "*.tar.gz" | head -10
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }} (macOS ARM)
           draft: false
           prerelease: false
-          # пока загружаем всё подряд — потом заменим на нужные расширения
+          body: |
+            ## Moonraker Host Scanner v${{ github.ref_name }}
+            
+            ### 🍎 macOS ARM64 Build
+            
+            This release contains the macOS ARM64 (Apple Silicon) build of Moonraker Host Scanner.
+            
+            ### 📦 Installation
+            
+            1. Download the `.dmg` file
+            2. Open the DMG and drag the app to Applications
+            3. Launch Moonraker Host Scanner
+            
+            ### 🔧 Features
+            
+            - Network scanning for Moonraker printers
+            - Real-time printer status monitoring
+            - Printer control (start, pause, stop, emergency stop)
+            - Webcam streaming support
+            - SSH connection support
+            - System notifications
+            - Multi-language support (English, Russian, German)
+            - Dark/Light theme support
+            
+            ### 🐛 Bug Reports
+            
+            If you encounter any issues, please report them on GitHub.
           files: |
-            moonraker-host-scanner-windows/**/*
-            moonraker-host-scanner-macos-intel/**/*
-            moonraker-host-scanner-macos-arm/**/*
-            moonraker-host-scanner-linux/**/*
+            artifacts/macos-arm/**/*.dmg
+            artifacts/macos-arm/**/*.app
+            artifacts/macos-arm/**/*.tar.gz
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

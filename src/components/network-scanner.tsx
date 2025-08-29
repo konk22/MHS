@@ -1045,7 +1045,7 @@ export function NetworkScanner() {
           </div>
         </div>
 
-
+        
 
         {/* Scan Controls */}
         <Card>
