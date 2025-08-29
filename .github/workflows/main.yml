@@ -260,12 +260,12 @@ jobs:
           override: true
       - name: Install Rust target for Linux x86
         run: rustup target add x86_64-unknown-linux-gnu
-      - name: Install dependencies
-        run: pnpm install
       - name: Install system dependencies for Linux
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+      - name: Install dependencies
+        run: pnpm install
       - name: Build Next.js
         run: pnpm build
       - name: Build Tauri application for Linux x86
@@ -320,9 +320,9 @@ jobs:
       - name: Collect artifacts
         id: collect_artifacts
         run: |
-          files=$(find ./artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.deb" \) | tr '\n' ',' | sed 's/,$//')
+          files=$(find ./artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" \) | tr '\n' ',' | sed 's/,$//')
           if [ -z "$files" ]; then
-            echo "❌ No .dmg, .exe, or .deb files found!"
+            echo "❌ No .dmg, .exe, or .AppImage files found!"
             exit 1
           fi
           echo "FILES=$files" >> $GITHUB_ENV
@@ -347,7 +347,7 @@ jobs:
             - ARM64 (`.exe` for ARM-based Windows devices)
 
             ### 🐧 Linux Builds
-            - x86_64 (`.deb` for Debian/Ubuntu-based distributions)
+            - x86_64 (`.AppImage` for Linux distributions)
 
             ### 📦 Installation
             #### macOS
@@ -359,9 +359,9 @@ jobs:
             2. Run the installer and follow the instructions
             3. Launch Moonraker Host Scanner
             #### Linux
-            1. Download the `.deb` file
-            2. Install using `sudo dpkg -i <file>.deb` or a package manager
-            3. Launch Moonraker Host Scanner
+            1. Download the `.AppImage` file
+            2. Make it executable with `chmod +x <file>.AppImage`
+            3. Run the `.AppImage` file to launch Moonraker Host Scanner
 
             ### 🔧 Features
             - Network scanning for Moonraker printers
