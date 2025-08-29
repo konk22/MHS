@@ -121,3 +121,34 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Disable right-click context menu globally, except for input fields */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection and right-click in input fields */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Limit context menu to only copy, cut, paste operations */
+input, textarea, [contenteditable="true"] {
+  -webkit-context-menu: none;
+  -moz-context-menu: none;
+  context-menu: none;
+}
+
+/* Custom context menu for input fields - only copy, cut, paste */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}

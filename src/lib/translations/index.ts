@@ -95,6 +95,11 @@ export interface Translations {
   // Auto-refresh
   autoRefreshActive: string
   networkScanActive: string
+  
+  // Context Menu
+  copy: string
+  cut: string
+  paste: string
 }
 
 export const translations: Record<string, Translations> = {

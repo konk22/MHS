@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
+import { DisableContextMenu } from '@/components/disable-context-menu'
 
 export const metadata: Metadata = {
   title: 'v0 App',
@@ -25,7 +26,10 @@ html {
 }
         `}</style>
       </head>
-      <body>{children}</body>
+      <body>
+        <DisableContextMenu />
+        {children}
+      </body>
     </html>
   )
 }

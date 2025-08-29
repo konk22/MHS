@@ -91,4 +91,9 @@ export const ru = {
   // Auto-refresh
   autoRefreshActive: "Активно",
   networkScanActive: "Сканирование сети: {interval}с",
+  
+  // Context Menu
+  copy: "Копировать",
+  cut: "Вырезать", 
+  paste: "Вставить",
 }

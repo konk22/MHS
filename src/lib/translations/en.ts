@@ -91,4 +91,9 @@ export const en = {
   // Auto-refresh
   autoRefreshActive: "Active",
   networkScanActive: "Network scan: {interval}s",
+  
+  // Context Menu
+  copy: "Copy",
+  cut: "Cut", 
+  paste: "Paste",
 }
