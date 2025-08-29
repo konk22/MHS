@@ -1,5 +1,4 @@
 name: Build & Release for macOS ARM + x86
-
 on:
   push:
     branches: [ main, develop ]
@@ -8,28 +7,23 @@ on:
   pull_request:
     branches: [ main, develop ]
   workflow_dispatch:
-
 jobs:
   test:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8
-
       - name: Setup pnpm cache
         uses: actions/cache@v3
         with:
@@ -39,37 +33,29 @@ jobs:
           key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
-
       - name: Install dependencies
         run: pnpm install
-
       - name: Type check
         run: npx tsc --noEmit --skipLibCheck
-
       - name: Build test
         run: pnpm build
-
   build-macos-arm:
     runs-on: macos-latest
     permissions:
       contents: read
       packages: write
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8
-
       - name: Setup pnpm cache
         uses: actions/cache@v3
         with:
@@ -79,55 +65,44 @@ jobs:
           key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
-
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
-
       - name: Install Rust target for macOS ARM
         run: rustup target add aarch64-apple-darwin
-
       - name: Install dependencies
         run: pnpm install
-
       - name: Build Next.js
         run: pnpm build
-
       - name: Build Tauri application for macOS ARM
         run: pnpm tauri build --target aarch64-apple-darwin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Upload macOS ARM artifacts
         uses: actions/upload-artifact@v4
         with:
           name: moonraker-host-scanner-macos-arm
           path: src-tauri/target/aarch64-apple-darwin/release/bundle/
           retention-days: 30
-
   build-macos-x86:
     runs-on: macos-latest
     permissions:
       contents: read
       packages: write
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8
-
       - name: Setup pnpm cache
         uses: actions/cache@v3
         with:
@@ -137,34 +112,27 @@ jobs:
           key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
-
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
-
       - name: Install Rust target for macOS x86
         run: rustup target add x86_64-apple-darwin
-
       - name: Install dependencies
         run: pnpm install
-
       - name: Build Next.js
         run: pnpm build
-
       - name: Build Tauri application for macOS x86
         run: pnpm tauri build --target x86_64-apple-darwin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Upload macOS x86 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: moonraker-host-scanner-macos-x86
           path: src-tauri/target/x86_64-apple-darwin/release/bundle/
           retention-days: 30
-
   release:
     runs-on: ubuntu-latest
     permissions:
@@ -172,41 +140,34 @@ jobs:
       packages: write
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     needs: [build-macos-arm, build-macos-x86]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Download macOS ARM artifacts
         uses: actions/download-artifact@v4
         with:
           name: moonraker-host-scanner-macos-arm
           path: ./artifacts/macos-arm
-
       - name: Download macOS x86 artifacts
         uses: actions/download-artifact@v4
         with:
           name: moonraker-host-scanner-macos-x86
           path: ./artifacts/macos-x86
-
       - name: Debug artifacts structure
         run: |
           echo "Artifacts structure:"
-          ls -R ./artifacts || true
-
+          find ./artifacts -type f || true
       - name: Collect DMG artifacts
         id: collect_dmg
         run: |
-          find ./artifacts -type f -name "*.dmg" > dmg_files.txt
-          if [ ! -s dmg_files.txt ]; then
+          files=$(find ./artifacts -type f -name "*.dmg" | tr '\n' ',' | sed 's/,$//')
+          if [ -z "$files" ]; then
             echo "❌ No .dmg files found!"
             exit 1
           fi
-          # В GITHUB_ENV записываем через переносы строк
-          echo "FILES=$(cat dmg_files.txt)" >> $GITHUB_ENV
+          echo "FILES=$files" >> $GITHUB_ENV
           echo "Found DMG files:"
-          cat dmg_files.txt
-
+          echo "$files" | tr ',' '\n'
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
