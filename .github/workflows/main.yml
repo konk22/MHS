@@ -48,7 +48,7 @@ jobs:
       - name: Upload macOS ARM artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: moonraker-host-scanner-macos-aarch64-apple-darwin
+          name: moonraker-host-scanner-macos-aarch64
           path: src-tauri/target/aarch64-apple-darwin/release/bundle/
           retention-days: 30
   build-macos-x86:
@@ -94,7 +94,7 @@ jobs:
       - name: Upload macOS x86 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: moonraker-host-scanner-macos-x86_64-apple-darwin
+          name: moonraker-host-scanner-macos-x86_64
           path: src-tauri/target/x86_64-apple-darwin/release/bundle/
           retention-days: 30
   build-windows-x86:
@@ -140,7 +140,7 @@ jobs:
       - name: Upload Windows x86 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: moonraker-host-scanner-windows-x86_64-pc-windows-msvc
+          name: moonraker-host-scanner-windows-x86_64
           path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/
           retention-days: 30
   build-windows-arm:
@@ -186,7 +186,7 @@ jobs:
       - name: Upload Windows ARM artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: moonraker-host-scanner-windows-aarch64-pc-windows-msvc
+          name: moonraker-host-scanner-windows-aarch64
           path: src-tauri/target/aarch64-pc-windows-msvc/release/bundle/
           retention-days: 30
   release:
@@ -201,22 +201,22 @@ jobs:
       - name: Download macOS ARM artifacts
         uses: actions/download-artifact@v4
         with:
-          name: moonraker-host-scanner-macos-aarch64-apple-darwin
+          name: moonraker-host-scanner-macos-aarch64
           path: ./artifacts/macos-aarch64
       - name: Download macOS x86 artifacts
         uses: actions/download-artifact@v4
         with:
-          name: moonraker-host-scanner-macos-x86_64-apple-darwin
+          name: moonraker-host-scanner-macos-x86_64
           path: ./artifacts/macos-x86_64
       - name: Download Windows x86 artifacts
         uses: actions/download-artifact@v4
         with:
-          name: moonraker-host-scanner-windows-x86_64-pc-windows-msvc
+          name: moonraker-host-scanner-windows-x86_64
           path: ./artifacts/windows-x86_64
       - name: Download Windows ARM artifacts
         uses: actions/download-artifact@v4
         with:
-          name: moonraker-host-scanner-windows-aarch64-pc-windows-msvc
+          name: moonraker-host-scanner-windows-aarch64
           path: ./artifacts/windows-aarch64
       - name: Debug artifacts structure
         run: |
@@ -230,7 +230,7 @@ jobs:
             echo "❌ No .dmg or .exe files found!"
             exit 1
           fi
-          echo "FILES=$files" >> $GITHUB_ENV
+          echo "files=$files" >> $GITHUB_OUTPUT
           echo "Found artifacts:"
           echo "$files" | tr ',' '\n'
       - name: Create Release
@@ -241,7 +241,7 @@ jobs:
           draft: false
           prerelease: false
           body: |
-            ## Moonraker Host Scanner v${{ github.ref_name }}
+            ## Moonraker Host Scanner ${{ github.ref_name }}
 
             ### 🍎 macOS Builds
             - **macOS ARM64** (`.dmg` for Apple Silicon Macs)
@@ -255,7 +255,11 @@ jobs:
             #### macOS
             1. Download the `.dmg` file
             2. Open the DMG and drag the app to Applications
-            3. Launch Moonraker Host Scanner (ignore quarantine warning or remove it manually)
+            3. **Remove from quarantine** (required for unsigned apps):
+               ```bash
+               sudo xattr -rd com.apple.quarantine /Applications/Moonraker\ Host\ Scanner.app
+               ```
+            4. Launch Moonraker Host Scanner
             #### Windows
             1. Download the `.exe` file
             2. Run the installer and follow the instructions
@@ -273,6 +277,6 @@ jobs:
 
             ### 🐛 Bug Reports
             If you encounter any issues, please report them on GitHub.
-          files: ${{ env.FILES }}
+          files: ${{ steps.collect_artifacts.outputs.files }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

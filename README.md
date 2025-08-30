@@ -47,6 +47,22 @@ A modern, cross-platform desktop application for discovering, monitoring, and co
    pnpm tauri:build
    ```
 
+### 🍎 macOS Installation (Production Builds)
+
+Since the application is not yet signed with an Apple Developer certificate, you'll need to remove it from quarantine after installation:
+
+1. **Download the `.dmg` file** from the latest release:
+   - `moonraker-host-scanner-macos-aarch64.dmg` (for Apple Silicon)
+   - `moonraker-host-scanner-macos-x86_64.dmg` (for Intel Macs)
+2. **Mount the DMG** and drag the app to Applications
+3. **Remove from quarantine** by running this command in Terminal:
+   ```bash
+   sudo xattr -rd com.apple.quarantine /Applications/Moonraker\ Host\ Scanner.app
+   ```
+4. **Launch the application** - it should now run without warnings
+
+**Note:** This is a temporary solution until the app is properly signed with an Apple Developer certificate.
+
 ## 🏗️ Architecture
 
 ### Frontend (React + TypeScript)
@@ -217,6 +233,17 @@ pnpm release            # Create release with git tag
 - **Tag-based releases** only (no branch deployments)
 - **Multi-platform builds** (macOS, Windows)
 - **See [GITHUB_ACTIONS.md](./GITHUB_ACTIONS.md)** for CI/CD details
+
+## 📚 Documentation
+
+### Installation Guides
+- **[VERSIONING.md](./VERSIONING.md)** - Управление версиями проекта
+- **[GITHUB_ACTIONS.md](./GITHUB_ACTIONS.md)** - Настройка CI/CD
+- **[ARTIFACT_NAMING.md](./ARTIFACT_NAMING.md)** - Именование артефактов
+
+### Development Guides
+- **[BUILD.md](./BUILD.md)** - Инструкции по сборке
+- **[REFACTORING_SUMMARY.md](./REFACTORING_SUMMARY.md)** - Обзор архитектуры
 
 ## 🤝 Contributing
 

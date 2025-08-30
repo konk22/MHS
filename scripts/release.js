@@ -62,10 +62,26 @@ function createRelease(version, message = '') {
   // Обновляем версии во всех файлах
   updateVersion(version);
 
+  // Проверяем, что версия действительно обновилась
+  try {
+    const packageVersion = execSync('node -p "require(\'./package.json\').version"', { encoding: 'utf8' }).trim();
+    if (packageVersion !== version) {
+      console.error(`❌ Ошибка: версия в package.json (${packageVersion}) не совпадает с запрошенной (${version})`);
+      process.exit(1);
+    }
+    console.log(`✅ Версия успешно обновлена до ${version}`);
+  } catch (error) {
+    console.error('❌ Ошибка при проверке версии:', error.message);
+    process.exit(1);
+  }
+
   // Коммитим изменения версии
   try {
     runCommand('git add .', 'Добавление изменений в git');
-    runCommand(`git commit -m "chore: bump version to ${version}"`, 'Коммит изменений версии');
+    const commitMessage = `chore: bump version to ${version}
+
+${releaseMessage}`;
+    runCommand(`git commit -m "${commitMessage}"`, 'Коммит изменений версии');
   } catch (error) {
     console.error('❌ Ошибка при коммите изменений версии');
     process.exit(1);
