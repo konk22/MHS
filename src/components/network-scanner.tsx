@@ -174,8 +174,8 @@ export function NetworkScanner() {
       offline: true,
     },
     theme: "system",
-    autoRefresh: false,
-    refreshInterval: 30,
+    autoRefresh: true,
+    refreshInterval: 3,
     language: "en", // Added default language
   })
 
@@ -191,6 +191,7 @@ export function NetworkScanner() {
   const [currentWebcamUrlIndex, setCurrentWebcamUrlIndex] = useState(0)
   const [webcamRotation, setWebcamRotation] = useState(0)
   const [webcamFlip, setWebcamFlip] = useState({ horizontal: false, vertical: false })
+  const [webcamRefreshKey, setWebcamRefreshKey] = useState(0)
   const [expandedRows, setExpandedRows] = useState(new Set())
   const [loadingButtons, setLoadingButtons] = useState<Set<string>>(new Set())
 
@@ -207,9 +208,10 @@ export function NetworkScanner() {
   // Отправка системного уведомления
   const sendNotification = async (title: string, body: string) => {
     try {
-      await invokeTauri('send_system_notification', { title, body })
+      await invokeTauri('send_system_notification_command', { title, body })
     } catch (error) {
-      console.error('Failed to send notification:', error)
+      console.error('Failed to send notification:', error);
+      // Silent fail for notifications
     }
   }
 
@@ -221,7 +223,7 @@ export function NetworkScanner() {
         const parsed = JSON.parse(savedSettings)
         setSettings(prev => ({ ...prev, ...parsed }))
       } catch (error) {
-        console.error('Failed to parse saved settings:', error)
+        // Silent fail for settings loading
       }
     }
   }, [])
@@ -230,6 +232,16 @@ export function NetworkScanner() {
   useEffect(() => {
     localStorage.setItem('networkScanner_settings', JSON.stringify(settings))
   }, [settings])
+
+  // Apply notification settings to existing hosts when settings change
+  useEffect(() => {
+    if (hosts.length > 0) {
+      // Small delay to ensure settings are saved
+      setTimeout(() => {
+        refreshHostsStatus();
+      }, 200);
+    }
+  }, [settings.notifications])
 
   // Load hosts from localStorage
   useEffect(() => {
@@ -245,7 +257,7 @@ export function NetworkScanner() {
         setHosts(hostsWithOriginal)
         setOnlineHosts(hostsWithOriginal.filter((h: HostInfo) => h.status === 'online').length)
       } catch (error) {
-        console.error('Failed to parse saved hosts:', error)
+        // Silent fail for hosts loading
       }
     }
   }, [])
@@ -297,6 +309,24 @@ export function NetworkScanner() {
     localStorage.setItem("networkScanner_language", settings.language)
   }, [settings.language])
 
+  // Auto-refresh webcam when dialog is open
+  useEffect(() => {
+    let webcamInterval: NodeJS.Timeout | null = null;
+
+    if (webcamDialog.open && webcamDialog.host) {
+      // Refresh webcam every 3 seconds
+      webcamInterval = setInterval(() => {
+        setWebcamRefreshKey(prev => prev + 1);
+      }, 3000);
+    }
+
+    return () => {
+      if (webcamInterval) {
+        clearInterval(webcamInterval);
+      }
+    };
+  }, [webcamDialog.open, webcamDialog.host]);
+
   // Auto-refresh effect - обновление статусов хостов каждую секунду
   useEffect(() => {
     let statusIntervalId: NodeJS.Timeout | null = null
@@ -332,6 +362,24 @@ export function NetworkScanner() {
     return () => {
       if (networkScanIntervalId) {
         clearInterval(networkScanIntervalId)
+      }
+    }
+  }, [settings.autoRefresh, settings.refreshInterval, hosts.length])
+
+  // Auto-refresh status effect - обновление статусов хостов
+  useEffect(() => {
+    let statusRefreshIntervalId: NodeJS.Timeout | null = null
+
+    if (settings.autoRefresh && hosts.length > 0) {
+      // Устанавливаем интервал обновления статусов хостов
+      statusRefreshIntervalId = setInterval(() => {
+        refreshHostsStatus()
+      }, settings.refreshInterval * 1000)
+    }
+
+    return () => {
+      if (statusRefreshIntervalId) {
+        clearInterval(statusRefreshIntervalId)
       }
     }
   }, [settings.autoRefresh, settings.refreshInterval, hosts.length])
@@ -378,7 +426,7 @@ export function NetworkScanner() {
           })
         }, 100)
         
-        const result = await invokeTauri('scan_network', { subnets: enabledSubnets })
+        const result = await invokeTauri('scan_network_command', { subnets: enabledSubnets })
         
         clearInterval(progressInterval)
         setScanProgress(80)
@@ -421,7 +469,7 @@ export function NetworkScanner() {
         setScanStatus("")
               } else {
           // Для автоматического сканирования - тихое обновление
-          const result = await invokeTauri('scan_network', { subnets: enabledSubnets })
+          const result = await invokeTauri('scan_network_command', { subnets: enabledSubnets })
           
           if (result.hosts) {
             setHosts(prevHosts => {
@@ -454,7 +502,6 @@ export function NetworkScanner() {
           }
         }
     } catch (error) {
-      console.error('Scan failed:', error)
       if (!isAutoScan) {
         alert('Scan failed: ' + (error as Error).message)
       }
@@ -509,7 +556,6 @@ export function NetworkScanner() {
           apiAction = 'emergency_stop'
           break
         default:
-          console.error(`Unknown action: ${action}`)
           return
       }
 
@@ -528,7 +574,6 @@ export function NetworkScanner() {
       })
       
     } catch (error) {
-      console.error(`${action} failed:`, error)
       alert(`${action} failed: ${(error as Error).message}`)
       setLoadingButtons(prev => {
         const newSet = new Set(prev)
@@ -540,21 +585,19 @@ export function NetworkScanner() {
 
   const handleSSHConnect = async (host: HostInfo) => {
     try {
-      await invokeTauri('open_ssh_connection', { 
+      await invokeTauri('open_ssh_connection_command', { 
         host: host.ip_address, 
         user: settings.defaultSSHUser 
       })
     } catch (error) {
-      console.error('SSH connection failed:', error)
       alert('SSH connection failed: ' + (error as Error).message)
     }
   }
 
   const handleIPClick = async (ipAddress: string) => {
     try {
-      await invokeTauri('open_host_in_browser', { host: ipAddress })
+      await invokeTauri('open_host_in_browser_command', { host: ipAddress })
     } catch (error) {
-      console.error('Failed to open browser:', error)
       // Fallback to window.open
       window.open(`http://${ipAddress}`, "_blank")
     }
@@ -564,6 +607,7 @@ export function NetworkScanner() {
     setCurrentWebcamUrlIndex(0);
     setWebcamRotation(0);
     setWebcamFlip({ horizontal: false, vertical: false });
+    setWebcamRefreshKey(0);
     setWebcamDialog({ open: true, host })
   }
 
@@ -578,7 +622,9 @@ export function NetworkScanner() {
       `${baseUrl}:8080/?action=stream`,
       `${baseUrl}:8080/stream`,
     ];
-    return webcamUrls[index] || webcamUrls[0];
+    const url = webcamUrls[index] || webcamUrls[0];
+    const urlWithRefresh = `${url}${url.includes('?') ? '&' : '?'}t=${webcamRefreshKey}`;
+    return urlWithRefresh;
   }
 
   const getNextWebcamUrl = (host: HostInfo) => {
@@ -617,10 +663,19 @@ export function NetworkScanner() {
         hosts.map(async (host) => {
           try {
             // Проверяем состояние хоста через Tauri API
-            const result = await invokeTauri('check_host_status', { ip: host.ip_address })
+            console.log('Checking status for host:', host.ip_address);
+            const result = await invokeTauri('check_host_status_command', { ip: host.ip_address })
+            console.log('Status result for', host.ip_address, ':', result);
             
             if (result.success) {
               // Хост ответил успешно - сбрасываем счетчик неудачных попыток
+              console.log('Host responded successfully:', {
+                host: host.ip_address,
+                status: result.status,
+                klippy_state: result.klippy_state,
+                device_status: result.device_status
+              });
+              
               return {
                 ...host,
                 // Сохраняем пользовательские данные
@@ -641,6 +696,8 @@ export function NetworkScanner() {
               const currentFailedAttempts = host.failed_attempts || 0
               const newFailedAttempts = currentFailedAttempts + 1
               
+
+              
               // Помечаем как оффлайн только после 3 неудачных попыток подряд
               const shouldMarkOffline = newFailedAttempts >= 3
               
@@ -657,7 +714,6 @@ export function NetworkScanner() {
               }
             }
           } catch (error) {
-            console.error(`Failed to check status for host ${host.ip_address}:`, error)
             // В случае ошибки увеличиваем счетчик неудачных попыток
             const currentFailedAttempts = host.failed_attempts || 0
             const newFailedAttempts = currentFailedAttempts + 1
@@ -713,22 +769,41 @@ export function NetworkScanner() {
               )
       setOnlineHosts(updatedHosts.filter(h => h.status === 'online').length)
     } catch (error) {
-      console.error('Auto-refresh failed:', error)
+      // Silent fail for auto-refresh
     }
   }
 
   /**
    * Determines printer status based on Moonraker API flags
-   * Priority order: error > cancelling > paused > printing > ready > standby
+   * Priority order: offline > error > cancelling > paused > printing > ready > standby
    * @param host - Host information containing printer flags
    * @returns Status string for display
    */
   const getPrinterStatus = (host: HostInfo): string => {
+    // First check if host is marked as offline
     if (host.status === 'offline') {
       return 'offline'
     }
     
+    // Check if we have too many failed attempts (host is effectively offline)
+    if (host.failed_attempts && host.failed_attempts >= 3) {
+      return 'offline'
+    }
+    
+    // Check if Klippy is completely disconnected (not just in error state)
+    if (host.klippy_state === 'disconnected') {
+      return 'offline'
+    }
+    
+    // If no printer flags, check if we have any device status
     if (!host.printer_flags) {
+      if (host.device_status === 'offline' || host.device_status === 'klippy_disconnected') {
+        return 'offline'
+      }
+      // If Klippy is in error state but host responds, show error status
+      if (host.klippy_state === 'error') {
+        return 'error'
+      }
       return 'standby'
     }
     
@@ -764,9 +839,15 @@ export function NetworkScanner() {
     const newStatus = getPrinterStatus(newHost)
     
     if (oldStatus !== newStatus) {
+      // Get current settings to ensure we have the latest notification preferences
+      const currentSettings = JSON.parse(localStorage.getItem('networkScanner_settings') || '{}')
+      const notifications = currentSettings.notifications || settings.notifications
+      
       // Check if notifications are enabled for this status
-      const statusKey = newStatus as keyof typeof settings.notifications
-      if (settings.notifications[statusKey]) {
+      const statusKey = newStatus as keyof typeof notifications
+      const notificationEnabled = notifications[statusKey];
+      
+      if (notificationEnabled) {
         const title = `${t.networkScanner} - ${oldHost.hostname}`
         const body = `${t.status}: ${t[statusKey as keyof typeof t] || newStatus}`
         
@@ -994,21 +1075,50 @@ export function NetworkScanner() {
                               <Checkbox
                                 id={key}
                                 checked={settings.notifications[key as keyof typeof settings.notifications]}
-                                onCheckedChange={(checked) =>
-                                  setSettings((prev) => ({
-                                    ...prev,
-                                    notifications: {
-                                      ...prev.notifications,
-                                      [key]: checked as boolean,
-                                    },
-                                  }))
-                                }
+                                onCheckedChange={(checked) => {
+                                  setSettings((prev) => {
+                                    const newSettings = {
+                                      ...prev,
+                                      notifications: {
+                                        ...prev.notifications,
+                                        [key]: checked as boolean,
+                                      },
+                                    };
+                                    
+                                    // Force refresh all existing hosts with new notification settings
+                                    setTimeout(() => {
+                                      refreshHostsStatus();
+                                    }, 100);
+                                    
+                                    return newSettings;
+                                  });
+                                }}
                               />
                               <Label htmlFor={key} className="capitalize">
                                 {label}
                               </Label>
                             </div>
                           ))}
+                          
+                                                      {/* Test notification button */}
+                            <div className="pt-4 border-t space-y-2">
+                              <Button 
+                                onClick={() => sendNotification('Test Notification', 'This is a test notification to verify the system is working')}
+                                variant="outline"
+                                className="w-full"
+                              >
+                                Test Notification
+                              </Button>
+                              <Button 
+                                onClick={() => {
+                                  refreshHostsStatus();
+                                }}
+                                variant="outline"
+                                className="w-full"
+                              >
+                                Apply Settings to Existing Hosts
+                              </Button>
+                            </div>
                         </div>
                     </TabsContent>
 
@@ -1086,6 +1196,7 @@ export function NetworkScanner() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="3">3s</SelectItem>
                     <SelectItem value="10">10s</SelectItem>
                     <SelectItem value="30">30s</SelectItem>
                     <SelectItem value="60">1m</SelectItem>
@@ -1099,6 +1210,17 @@ export function NetworkScanner() {
                     <span>{t.networkScanActive.replace('{interval}', settings.refreshInterval.toString())}</span>
                   </div>
                 )}
+                
+                {/* Manual refresh button */}
+                <Button 
+                  onClick={() => refreshHostsStatus()}
+                  variant="outline"
+                  size="sm"
+                  disabled={hosts.length === 0}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Status
+                </Button>
               </div>
             </div>
             
@@ -1357,18 +1479,16 @@ export function NetworkScanner() {
                       className="webcam-img max-w-full max-h-full object-contain"
                       src={getWebcamUrl(webcamDialog.host, currentWebcamUrlIndex)}
                       alt={`Webcam stream from ${webcamDialog.host.hostname}`}
-                      crossOrigin="anonymous"
                       onLoad={() => {
-                        console.log('Webcam stream loaded successfully');
                         const fallback = document.querySelector('.fallback') as HTMLElement;
                         if (fallback) fallback.style.display = 'none';
                       }}
                       onError={(e) => {
-                        console.error('Failed to load webcam stream:', e);
                         const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const fallback = target.parentElement?.querySelector('.fallback') as HTMLElement;
-                        if (fallback) fallback.style.display = 'flex';
+                        // Retry loading after a short delay
+                        setTimeout(() => {
+                          target.src = getWebcamUrl(webcamDialog.host!, currentWebcamUrlIndex) + '?t=' + Date.now();
+                        }, 1000);
                       }}
                     />
                   </div>
@@ -1381,7 +1501,6 @@ export function NetworkScanner() {
                       <Button
                         onClick={() => {
                           const url = getWebcamUrl(webcamDialog.host!, currentWebcamUrlIndex);
-                          console.log('Opening webcam URL:', url);
                           window.open(url, '_blank');
                         }}
                         className="bg-blue-600 hover:bg-blue-700"
