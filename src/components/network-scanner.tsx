@@ -1101,22 +1101,13 @@ export function NetworkScanner() {
                           ))}
                           
                                                       {/* Test notification button */}
-                            <div className="pt-4 border-t space-y-2">
+                            <div className="pt-4 border-t">
                               <Button 
                                 onClick={() => sendNotification('Test Notification', 'This is a test notification to verify the system is working')}
                                 variant="outline"
                                 className="w-full"
                               >
                                 Test Notification
-                              </Button>
-                              <Button 
-                                onClick={() => {
-                                  refreshHostsStatus();
-                                }}
-                                variant="outline"
-                                className="w-full"
-                              >
-                                Apply Settings to Existing Hosts
                               </Button>
                             </div>
                         </div>

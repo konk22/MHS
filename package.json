@@ -1,6 +1,6 @@
 {
   "name": "moonraker-host-scanner",
-  "version": "0.1.0",
+  "version": "0.0.2",
   "private": true,
   "scripts": {
     "build": "next build",
@@ -17,7 +17,9 @@
     "build:all": "next build && tauri build --target all",
     "test": "echo \"No tests specified\" && exit 0",
     "clean": "rm -rf .next out src-tauri/target",
-    "clean:all": "rm -rf node_modules .next out src-tauri/target pnpm-lock.yaml && pnpm install"
+    "clean:all": "rm -rf node_modules .next out src-tauri/target pnpm-lock.yaml && pnpm install",
+    "version:update": "node scripts/update-version.js",
+    "release": "node scripts/release.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

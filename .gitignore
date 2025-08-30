@@ -98,6 +98,30 @@ ehthumbs.db
 Thumbs.db
 
 # Build artifacts
+*.log
+*.tmp
+*.temp
+
+# IDE specific files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.idea/
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.swp
+*.swo
+*~
 *.msi
 *.dmg
 *.deb
