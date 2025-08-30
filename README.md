@@ -212,6 +212,12 @@ pnpm release            # Create release with git tag
 - **Git tag integration** for releases
 - **See [VERSIONING.md](./VERSIONING.md)** for detailed instructions
 
+### CI/CD Pipeline
+- **GitHub Actions** for automated builds
+- **Tag-based releases** only (no branch deployments)
+- **Multi-platform builds** (macOS, Windows)
+- **See [GITHUB_ACTIONS.md](./GITHUB_ACTIONS.md)** for CI/CD details
+
 ## 🤝 Contributing
 
 ### Development Setup

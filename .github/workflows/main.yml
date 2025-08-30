@@ -1,50 +1,15 @@
-name: Build & Release for macOS ARM + x86, Windows x86 + ARM
+name: Build & Release (Tagged Versions Only)
 on:
   push:
-    branches: [ main, develop ]
     tags:
       - 'v*'
-  pull_request:
-    branches: [ main, develop ]
   workflow_dispatch:
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.pnpm-store
-            node_modules
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-      - name: Install dependencies
-        run: pnpm install
-      - name: Type check
-        run: npx tsc --noEmit --skipLibCheck
-      - name: Build test
-        run: pnpm build
   build-macos-arm:
     runs-on: macos-latest
     permissions:
       contents: read
       packages: write
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -83,7 +48,7 @@ jobs:
       - name: Upload macOS ARM artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: moonraker-host-scanner-macos-arm
+          name: moonraker-host-scanner-macos-aarch64-apple-darwin
           path: src-tauri/target/aarch64-apple-darwin/release/bundle/
           retention-days: 30
   build-macos-x86:
@@ -91,7 +56,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -130,7 +94,7 @@ jobs:
       - name: Upload macOS x86 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: moonraker-host-scanner-macos-x86
+          name: moonraker-host-scanner-macos-x86_64-apple-darwin
           path: src-tauri/target/x86_64-apple-darwin/release/bundle/
           retention-days: 30
   build-windows-x86:
@@ -138,7 +102,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -177,7 +140,7 @@ jobs:
       - name: Upload Windows x86 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: moonraker-host-scanner-windows-x86
+          name: moonraker-host-scanner-windows-x86_64-pc-windows-msvc
           path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/
           retention-days: 30
   build-windows-arm:
@@ -185,7 +148,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -224,7 +186,7 @@ jobs:
       - name: Upload Windows ARM artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: moonraker-host-scanner-windows-arm
+          name: moonraker-host-scanner-windows-aarch64-pc-windows-msvc
           path: src-tauri/target/aarch64-pc-windows-msvc/release/bundle/
           retention-days: 30
   release:
@@ -232,7 +194,6 @@ jobs:
     permissions:
       contents: write
       packages: write
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     needs: [build-macos-arm, build-macos-x86, build-windows-x86, build-windows-arm]
     steps:
       - name: Checkout code
@@ -240,23 +201,23 @@ jobs:
       - name: Download macOS ARM artifacts
         uses: actions/download-artifact@v4
         with:
-          name: moonraker-host-scanner-macos-arm
-          path: ./artifacts/macos-arm
+          name: moonraker-host-scanner-macos-aarch64-apple-darwin
+          path: ./artifacts/macos-aarch64
       - name: Download macOS x86 artifacts
         uses: actions/download-artifact@v4
         with:
-          name: moonraker-host-scanner-macos-x86
-          path: ./artifacts/macos-x86
+          name: moonraker-host-scanner-macos-x86_64-apple-darwin
+          path: ./artifacts/macos-x86_64
       - name: Download Windows x86 artifacts
         uses: actions/download-artifact@v4
         with:
-          name: moonraker-host-scanner-windows-x86
-          path: ./artifacts/windows-x86
+          name: moonraker-host-scanner-windows-x86_64-pc-windows-msvc
+          path: ./artifacts/windows-x86_64
       - name: Download Windows ARM artifacts
         uses: actions/download-artifact@v4
         with:
-          name: moonraker-host-scanner-windows-arm
-          path: ./artifacts/windows-arm
+          name: moonraker-host-scanner-windows-aarch64-pc-windows-msvc
+          path: ./artifacts/windows-aarch64
       - name: Debug artifacts structure
         run: |
           echo "Artifacts structure:"
@@ -283,12 +244,12 @@ jobs:
             ## Moonraker Host Scanner v${{ github.ref_name }}
 
             ### 🍎 macOS Builds
-            - ARM64 (`.dmg` for Apple Silicon)
-            - x86_64 (`.dmg` for Intel Macs)
+            - **macOS ARM64** (`.dmg` for Apple Silicon Macs)
+            - **macOS x86_64** (`.dmg` for Intel Macs)
 
             ### 🪟 Windows Builds
-            - x86_64 (`.exe` for Intel/AMD PCs)
-            - ARM64 (`.exe` for ARM-based Windows devices)
+            - **Windows x86_64** (`.exe` for Intel/AMD PCs)
+            - **Windows ARM64** (`.exe` for ARM-based Windows devices)
 
             ### 📦 Installation
             #### macOS
