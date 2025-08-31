@@ -145,7 +145,6 @@ src-tauri/Cargo.lock
 .env.production.local
 
 
-ARTIFACTS_NAMING.md
 macOS_INSTALLATION.md
 VERSIONING.md
 VERSION_SYNC_COMPLETE.md
