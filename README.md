@@ -119,9 +119,8 @@ pnpm release            # Create release with git tag
 ## 📦 Distribution
 
 ### Build Targets
-- **Windows**: `.msi` installer
+- **Windows**: `.exe` installer
 - **macOS**: `.dmg` disk image
-- **Linux**: `.AppImage` and `.deb` packages
 
 ### Release Process
 1. **Update version** with `pnpm version:update <version>`

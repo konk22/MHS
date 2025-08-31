@@ -431,6 +431,3 @@ jobs:
 - [Rust Community](https://www.rust-lang.org/community)
 - [Next.js Community](https://nextjs.org/community)
 
----
-
-**Создано с ❤️ для сообщества 3D-печати**
