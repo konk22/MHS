@@ -77,11 +77,18 @@ function createRelease(version, message = '') {
 
   // Коммитим изменения версии
   try {
-    runCommand('git add .', 'Добавление изменений в git');
-    const commitMessage = `chore: bump version to ${version}
+    // Проверяем, есть ли изменения для коммита
+    const gitStatus = execSync('git status --porcelain', { encoding: 'utf8' });
+    
+    if (gitStatus.trim()) {
+      runCommand('git add .', 'Добавление изменений в git');
+      const commitMessage = `chore: bump version to ${version}
 
 ${releaseMessage}`;
-    runCommand(`git commit -m "${commitMessage}"`, 'Коммит изменений версии');
+      runCommand(`git commit -m "${commitMessage}"`, 'Коммит изменений версии');
+    } else {
+      console.log('ℹ️  Нет изменений для коммита (версии уже актуальны)');
+    }
   } catch (error) {
     console.error('❌ Ошибка при коммите изменений версии');
     process.exit(1);
@@ -89,7 +96,14 @@ ${releaseMessage}`;
 
   // Создаем git tag
   try {
-    runCommand(`git tag -a ${tag} -m "${releaseMessage}"`, 'Создание git тега');
+    // Проверяем, существует ли уже тег
+    try {
+      execSync(`git rev-parse ${tag}`, { stdio: 'ignore' });
+      console.log(`ℹ️  Тег ${tag} уже существует, пропускаем создание`);
+    } catch (error) {
+      // Тег не существует, создаем его
+      runCommand(`git tag -a ${tag} -m "${releaseMessage}"`, 'Создание git тега');
+    }
   } catch (error) {
     console.error('❌ Ошибка при создании git тега');
     process.exit(1);
