@@ -28,7 +28,17 @@ function updateVersion(newVersion) {
       path: 'src-tauri/tauri.conf.json',
       pattern: /"version":\s*"[^"]*"/,
       replacement: `"version": "${newVersion}"`
-    }
+    },
+    {
+      path: 'src/lib/translations/en.ts',
+      pattern: /version:\s*"[^"]*"/,
+      replacement: `version: "Version ${newVersion}"`
+    },
+    {
+      path: 'src/lib/translations/ru.ts',
+      pattern: /version:\s*"[^"]*"/,
+      replacement: `version: "Версия ${newVersion}"`
+    },
   ];
 
   let updatedFiles = 0;
@@ -48,19 +58,7 @@ function updateVersion(newVersion) {
           console.log(`✅ Обновлен: ${file.path}`);
           updatedFiles++;
         } else {
-          // Проверяем, содержит ли файл уже нужную версию
-          const currentVersionMatch = content.match(file.pattern);
-          if (currentVersionMatch) {
-            const currentVersion = currentVersionMatch[0].match(/"[^"]*"/)[0].replace(/"/g, '');
-            if (currentVersion === newVersion) {
-              console.log(`✅ Уже актуальная версия: ${file.path} (${newVersion})`);
-              updatedFiles++;
-            } else {
-              console.log(`⚠️  Не изменен: ${file.path} (паттерн не найден)`);
-            }
-          } else {
-            console.log(`⚠️  Не изменен: ${file.path} (паттерн не найден)`);
-          }
+          console.log(`⚠️  Не изменен: ${file.path} (паттерн не найден)`);
         }
       } catch (error) {
         console.error(`❌ Ошибка при обновлении ${file.path}:`, error.message);

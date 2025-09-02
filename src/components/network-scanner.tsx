@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
+
 import {
   Wifi,
   WifiOff,
@@ -181,8 +181,8 @@ export function NetworkScanner() {
 
   const [onlineHosts, setOnlineHosts] = useState(0)
   const [isScanning, setIsScanning] = useState(false)
-  const [scanProgress, setScanProgress] = useState(0)
-  const [scanStatus, setScanStatus] = useState("")
+
+
   const [hosts, setHosts] = useState<HostInfo[]>([])
   const [webcamDialog, setWebcamDialog] = useState<{ open: boolean; host: HostInfo | null }>({
     open: false,
@@ -400,8 +400,7 @@ export function NetworkScanner() {
   const handleScan = async (isAutoScan: boolean = false) => {
     if (!isAutoScan) {
       setIsScanning(true)
-      setScanProgress(0)
-      setScanStatus(t.scanningPorts || "Scanning ports...")
+
     }
     
     try {
@@ -415,22 +414,7 @@ export function NetworkScanner() {
       }
 
       if (!isAutoScan) {
-        // Показываем прогресс сканирования портов только для ручного сканирования
-        setScanProgress(10)
-        
-        // Имитируем прогресс сканирования портов
-        const progressInterval = setInterval(() => {
-          setScanProgress(prev => {
-            if (prev < 40) return prev + 5
-            return prev
-          })
-        }, 100)
-        
         const result = await invokeTauri('scan_network_command', { subnets: enabledSubnets })
-        
-        clearInterval(progressInterval)
-        setScanProgress(80)
-        setScanStatus(t.scanningAPI || "Checking API...")
         
         if (result.hosts) {
           // Сохраняем пользовательские имена при повторном сканировании
@@ -465,50 +449,50 @@ export function NetworkScanner() {
           setOnlineHosts(result.online_hosts || 0)
         }
         
-        setScanProgress(100)
-        setScanStatus("")
-              } else {
-          // Для автоматического сканирования - тихое обновление
-          const result = await invokeTauri('scan_network_command', { subnets: enabledSubnets })
-          
-          if (result.hosts) {
-            setHosts(prevHosts => {
-              const newHosts = result.hosts.map((newHost: any) => {
-                const existingHost = prevHosts.find(h => h.ip_address === newHost.ip_address)
-                
-                if (existingHost) {
-                  // Проверяем, изменил ли пользователь имя
-                  const hasCustomName = existingHost.hostname !== existingHost.original_hostname
-                  
-                  return {
-                    ...newHost,
-                    original_hostname: newHost.hostname, // Обновляем оригинальное имя
-                    hostname: hasCustomName ? existingHost.hostname : newHost.hostname, // Сохраняем пользовательское или используем новое
-                    failed_attempts: existingHost.failed_attempts || 0 // Сохраняем счетчик неудачных попыток
-                  }
-                } else {
-                  return {
-                    ...newHost,
-                    original_hostname: newHost.hostname,
-                    failed_attempts: 0 // Инициализируем счетчик неудачных попыток
-                  }
-                }
-              })
+
+      } else {
+        // Для автоматического сканирования - тихое обновление
+        const result = await invokeTauri('scan_network_command', { subnets: enabledSubnets })
+        
+        if (result.hosts) {
+          setHosts(prevHosts => {
+            const newHosts = result.hosts.map((newHost: any) => {
+              const existingHost = prevHosts.find(h => h.ip_address === newHost.ip_address)
               
-              return newHosts
+              if (existingHost) {
+                // Проверяем, изменил ли пользователь имя
+                const hasCustomName = existingHost.hostname !== existingHost.original_hostname
+                
+                return {
+                  ...newHost,
+                  original_hostname: newHost.hostname, // Обновляем оригинальное имя
+                  hostname: hasCustomName ? existingHost.hostname : newHost.hostname, // Сохраняем пользовательское или используем новое
+                  failed_attempts: existingHost.failed_attempts || 0 // Сохраняем счетчик неудачных попыток
+                }
+              } else {
+                // Новый хост
+                return {
+                  ...newHost,
+                  original_hostname: newHost.hostname,
+                  failed_attempts: 0 // Инициализируем счетчик неудачных попыток
+                }
+              }
             })
             
-            setOnlineHosts(result.online_hosts || 0)
-          }
+            return newHosts
+          })
+          
+          setOnlineHosts(result.online_hosts || 0)
         }
+      }
     } catch (error) {
+      console.error('Scan error:', error)
       if (!isAutoScan) {
-        alert('Scan failed: ' + (error as Error).message)
+
       }
     } finally {
       if (!isAutoScan) {
         setIsScanning(false)
-        setScanStatus("")
       }
     }
   }
@@ -1160,7 +1144,7 @@ export function NetworkScanner() {
                 {isScanning ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    {scanStatus} {scanProgress}%
+                    {t.scanning}
                   </>
                 ) : (
                   <>
@@ -1215,15 +1199,7 @@ export function NetworkScanner() {
               </div>
             </div>
             
-            {isScanning && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>{scanStatus}</span>
-                  <span>{scanProgress}%</span>
-                </div>
-                <Progress value={scanProgress} className="w-full" />
-              </div>
-            )}
+
           </CardContent>
         </Card>
 

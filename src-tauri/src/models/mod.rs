@@ -6,7 +6,9 @@
 pub mod api;
 pub mod host;
 pub mod config;
+pub mod scan_progress;
 
 pub use api::*;
 pub use host::*;
 pub use config::*;
+pub use scan_progress::*;
