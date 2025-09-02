@@ -96,4 +96,18 @@ export const ru = {
   copy: "Копировать",
   cut: "Вырезать", 
   paste: "Вставить",
+  
+  // Update System
+  checkForUpdates: "Проверить обновления",
+  updateAvailable: "Доступно обновление",
+  noUpdateAvailable: "Обновления недоступны",
+  currentVersion: "Текущая версия",
+  latestVersion: "Последняя версия",
+  lastCheck: "Последняя проверка",
+  openRepository: "Открыть репозиторий",
+  openReleases: "Открыть релизы",
+  checkingForUpdates: "Проверка обновлений...",
+  updateCheckFailed: "Ошибка проверки обновлений",
+  repository: "Репозиторий",
+  releases: "Релизы",
 }

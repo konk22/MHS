@@ -96,4 +96,18 @@ export const en = {
   copy: "Copy",
   cut: "Cut", 
   paste: "Paste",
+  
+  // Update System
+  checkForUpdates: "Check for Updates",
+  updateAvailable: "Update Available",
+  noUpdateAvailable: "No updates available",
+  currentVersion: "Current Version",
+  latestVersion: "Latest Version",
+  lastCheck: "Last Check",
+  openRepository: "Open Repository",
+  openReleases: "Open Releases",
+  checkingForUpdates: "Checking for updates...",
+  updateCheckFailed: "Update check failed",
+  repository: "Repository",
+  releases: "Releases",
 }

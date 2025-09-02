@@ -96,4 +96,18 @@ export const de = {
   copy: "Kopieren",
   cut: "Ausschneiden", 
   paste: "Einfügen",
+  
+  // Update System
+  checkForUpdates: "Nach Updates suchen",
+  updateAvailable: "Update verfügbar",
+  noUpdateAvailable: "Keine Updates verfügbar",
+  currentVersion: "Aktuelle Version",
+  latestVersion: "Neueste Version",
+  lastCheck: "Letzte Prüfung",
+  openRepository: "Repository öffnen",
+  openReleases: "Releases öffnen",
+  checkingForUpdates: "Suche nach Updates...",
+  updateCheckFailed: "Update-Prüfung fehlgeschlagen",
+  repository: "Repository",
+  releases: "Releases",
 }

@@ -11,6 +11,18 @@ use notify_rust::Notification;
 /// * `title` - Notification title
 /// * `body` - Notification body text
 pub fn send_notification(title: &str, body: &str) {
+    // On macOS, we need to set the app name only once
+    #[cfg(target_os = "macos")]
+    {
+        use std::sync::Once;
+        static INIT: Once = Once::new();
+        
+        INIT.call_once(|| {
+            // Try to set the application name, but don't fail if it doesn't work
+            let _ = notify_rust::set_application("com.apple.Safari");
+        });
+    }
+    
     match Notification::new()
         .summary(title)
         .body(body)

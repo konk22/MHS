@@ -172,3 +172,33 @@ pub fn send_system_notification_command(title: String, body: String) -> Result<(
     send_notification(&title, &body);
     Ok(())
 }
+
+/// Opens a URL in the default browser
+/// 
+/// # Arguments
+/// * `url` - URL to open
+#[tauri::command]
+pub fn open_url_in_browser_command(url: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")] {
+        let _ = std::process::Command::new("open")
+            .arg(&url)
+            .output()
+            .map_err(|e| format!("Failed to open URL: {}", e))?;
+    }
+    
+    #[cfg(target_os = "windows")] {
+        let _ = std::process::Command::new("cmd")
+            .args(&["/C", "start", &url])
+            .output()
+            .map_err(|e| format!("Failed to open URL: {}", e))?;
+    }
+    
+    #[cfg(target_os = "linux")] {
+        let _ = std::process::Command::new("xdg-open")
+            .arg(&url)
+            .output()
+            .map_err(|e| format!("Failed to open URL: {}", e))?;
+    }
+    
+    Ok(())
+}

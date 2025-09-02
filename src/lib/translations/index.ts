@@ -100,6 +100,20 @@ export interface Translations {
   copy: string
   cut: string
   paste: string
+  
+  // Update System
+  checkForUpdates: string
+  updateAvailable: string
+  noUpdateAvailable: string
+  currentVersion: string
+  latestVersion: string
+  lastCheck: string
+  openRepository: string
+  openReleases: string
+  checkingForUpdates: string
+  updateCheckFailed: string
+  repository: string
+  releases: string
 }
 
 export const translations: Record<string, Translations> = {

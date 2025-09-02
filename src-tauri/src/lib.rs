@@ -30,6 +30,7 @@ pub mod api;
 pub mod network;
 pub mod commands;
 pub mod notifications;
+pub mod updater;
 
 // Re-export commonly used types
 pub use error::{MoonrakerError, MoonrakerResult};
@@ -55,6 +56,12 @@ pub fn run() {
             commands::system::open_host_in_browser_command,
             commands::system::open_ssh_connection_command,
             commands::system::send_system_notification_command,
+            commands::system::open_url_in_browser_command,
+            
+            // Updater commands
+            commands::updater::check_for_updates_command,
+            commands::updater::get_repository_url_command,
+            commands::updater::get_releases_url_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

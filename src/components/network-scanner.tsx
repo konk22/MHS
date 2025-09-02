@@ -61,6 +61,7 @@ import {
   RotateCw,
 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n"
+import { useUpdater } from "@/hooks/use-updater"
 
 /**
  * Network subnet configuration for scanning
@@ -196,6 +197,7 @@ export function NetworkScanner() {
   const [loadingButtons, setLoadingButtons] = useState<Set<string>>(new Set())
 
   const t = useTranslation(settings.language)
+  const { updateInfo, repositoryInfo, isChecking, checkForUpdates, openRepository, openReleases } = useUpdater()
 
   // Tauri API functions
   const invokeTauri = async (command: string, args?: any) => {
@@ -1117,10 +1119,93 @@ export function NetworkScanner() {
                     </TabsContent>
 
                     <TabsContent value="about" className="space-y-4 mt-4">
-                      <div className="text-center space-y-2">
-                        <h3 className="text-lg font-semibold">{t.networkScanner}</h3>
-                        <p className="text-sm text-muted-foreground">{t.version}</p>
-                        <p className="text-sm text-muted-foreground">{t.powerfulNetworkTool}</p>
+                      <div className="text-center space-y-4">
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-semibold">{t.networkScanner}</h3>
+                          <p className="text-sm text-muted-foreground">{t.version}</p>
+                          <p className="text-sm text-muted-foreground">{t.powerfulNetworkTool}</p>
+                        </div>
+
+                        {/* Update Information */}
+                        <div className="border rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{t.currentVersion}:</span>
+                            <span className="text-sm text-muted-foreground">
+                              {updateInfo?.current_version || '0.0.9'}
+                            </span>
+                          </div>
+
+                          {updateInfo?.update_available && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-green-600">{t.latestVersion}:</span>
+                              <span className="text-sm text-green-600 font-medium">
+                                {updateInfo.latest_version}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{t.lastCheck}:</span>
+                            <span className="text-sm text-muted-foreground">
+                              {updateInfo?.last_check ? new Date(updateInfo.last_check).toLocaleString() : '-'}
+                            </span>
+                          </div>
+
+                          {updateInfo?.update_available && (
+                            <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
+                              <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                                {t.updateAvailable}
+                              </p>
+                            </div>
+                          )}
+
+                          {updateInfo?.error && (
+                            <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
+                              <p className="text-sm text-red-700 dark:text-red-300">
+                                {t.updateCheckFailed}: {updateInfo.error}
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              onClick={checkForUpdates}
+                              disabled={isChecking}
+                              variant="outline"
+                              size="sm"
+                            >
+                              {isChecking ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  {t.checkingForUpdates}
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                  {t.checkForUpdates}
+                                </>
+                              )}
+                            </Button>
+
+                            <Button
+                              onClick={openRepository}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              {t.repository}
+                            </Button>
+
+                            <Button
+                              onClick={openReleases}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              {t.releases}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </TabsContent>
                   </div>

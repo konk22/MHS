@@ -59,6 +59,12 @@ impl From<serde_json::Error> for MoonrakerError {
     }
 }
 
+impl From<String> for MoonrakerError {
+    fn from(err: String) -> Self {
+        MoonrakerError::Api(err)
+    }
+}
+
 /// Result type alias for Moonraker operations
 pub type MoonrakerResult<T> = Result<T, MoonrakerError>;
 
