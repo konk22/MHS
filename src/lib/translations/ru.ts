@@ -71,7 +71,7 @@ export const ru = {
   offline: "Оффлайн",
 
   // About Tab
-  version: "Версия 0.0.11",
+  version: "Версия 0.0.12",
   powerfulNetworkTool: "Универсальный инструмент для поиска и администрирования 3D принтеров на базе Klipper в локальной сети",
 
   // Language Tab

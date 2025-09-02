@@ -71,7 +71,7 @@ export const en = {
   offline: "Offline",
 
   // About Tab
-  version: "Version 0.0.11",
+  version: "Version 0.0.12",
   powerfulNetworkTool: "Universal tool for searching and administering 3D printers based on Klipper in a local network",
 
   // Language Tab
