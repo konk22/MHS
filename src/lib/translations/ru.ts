@@ -1,7 +1,7 @@
 export const ru = {
   // Header
   networkScanner: "Moonraker Host Scanner",
-  discoverHosts: "Поиск 3D принтеров Klipper в локальной сети",
+  discoverHosts: "Поиск 3D принтеров в локальной сети",
   settings: "Настройки",
 
   // Stats Cards
@@ -34,7 +34,7 @@ export const ru = {
   delete: "Удалить",
 
   // Expanded Row
-  apiControls: "Управление",
+  apiControls: "Управление устройством",
   start: "Старт",
   pause: "Пауза",
   stop: "Стоп",
@@ -42,7 +42,7 @@ export const ru = {
 
   // Settings Dialog
   applicationSettings: "Настройки Приложения",
-  configureNetworkScanning: "Настройка сканирования сети и параметров приложения",
+  configureNetworkScanning: "Настройка сканирования сети и предпочтений",
   network: "Сеть",
   notifications: "Уведомления",
   about: "О программе",
@@ -52,10 +52,7 @@ export const ru = {
   subnetRanges: "Диапазоны Подсетей",
   addSubnet: "Добавить Подсеть",
   networkName: "Имя сети",
-  scanType: "Тип Сканирования",
-  apiResponseScan: "Сканирование API Ответов",
-  pingScan: "Ping Сканирование",
-  portScan: "Сканирование Портов",
+
 
   // SSH Tab
   defaultSSHUsername: "Имя Пользователя SSH по Умолчанию",
@@ -72,7 +69,7 @@ export const ru = {
 
   // About Tab
   version: "Версия 0.0.12",
-  powerfulNetworkTool: "Универсальный инструмент для поиска и администрирования 3D принтеров на базе Klipper в локальной сети",
+  powerfulNetworkTool: "Сетевой инструмент для поиска и управления 3D принтерами",
 
   // Language Tab
   selectLanguage: "Выбрать Язык",

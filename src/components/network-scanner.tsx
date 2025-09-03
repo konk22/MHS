@@ -695,80 +695,53 @@ export function NetworkScanner() {
     if (hosts.length === 0) return
 
     try {
-      // Обновляем состояние каждого хоста
-      const updatedHosts = await Promise.all(
-        hosts.map(async (host) => {
-          try {
-            // Проверяем состояние хоста через Tauri API
-            console.log('Checking status for host:', host.ip_address);
-            const result = await invokeTauri('check_host_status_command', { ip: host.ip_address })
-            console.log('Status result for', host.ip_address, ':', result);
+      const updatedHosts: HostInfo[] = []
+      
+      // Обновляем хосты по одному
+      for (let i = 0; i < hosts.length; i++) {
+        const host = hosts[i]
+        
+        try {
+          // Проверяем состояние хоста через Tauri API
+          const result = await invokeTauri('check_host_status_command', { ip: host.ip_address })
+          
+          if (result.success) {
+            // Хост ответил успешно - сбрасываем счетчик неудачных попыток
             
-            if (result.success) {
-              // Хост ответил успешно - сбрасываем счетчик неудачных попыток
-              console.log('Host responded successfully:', {
-                host: host.ip_address,
-                status: result.status,
-                klippy_state: result.klippy_state,
-                device_status: result.device_status
-              });
-              
-              // Получаем информацию о печати если хост печатает
-              let printInfo = null;
-              
-              if (result.printer_flags?.printing) {
-                printInfo = await getPrintInfo(host);
-              }
-
-              return {
-                ...host,
-                // Сохраняем пользовательские данные
-                hostname: host.hostname, // Сохраняем пользовательское имя
-                original_hostname: host.original_hostname, // Сохраняем оригинальное имя
-                // Обновляем только техническую информацию
-                status: result.status as "online" | "offline",
-                device_status: result.device_status || host.device_status,
-                moonraker_version: result.moonraker_version || host.moonraker_version,
-                klippy_state: result.klippy_state || host.klippy_state,
-                printer_state: result.printer_state || host.printer_state,
-                printer_flags: result.printer_flags || host.printer_flags,
-                last_seen: new Date().toISOString(),
-                failed_attempts: 0, // Сбрасываем счетчик неудачных попыток
-                // Добавляем информацию о печати
-                print_progress: printInfo?.print_progress,
-                print_info: printInfo?.print_info
-              }
-            } else {
-              // Хост не ответил - увеличиваем счетчик неудачных попыток
-              const currentFailedAttempts = host.failed_attempts || 0
-              const newFailedAttempts = currentFailedAttempts + 1
-              
-
-              
-              // Помечаем как оффлайн только после 3 неудачных попыток подряд
-              const shouldMarkOffline = newFailedAttempts >= 3
-              
-              return {
-                ...host,
-                // Сохраняем пользовательские данные
-                hostname: host.hostname, // Сохраняем пользовательское имя
-                original_hostname: host.original_hostname, // Сохраняем оригинальное имя
-                // Обновляем статус в зависимости от количества неудачных попыток
-                status: shouldMarkOffline ? 'offline' : 'online',
-                device_status: shouldMarkOffline ? 'offline' : host.device_status,
-                last_seen: new Date().toISOString(),
-                failed_attempts: newFailedAttempts
-              }
+            // Получаем информацию о печати если хост печатает
+            let printInfo = null;
+            
+            if (result.printer_flags?.printing) {
+              printInfo = await getPrintInfo(host);
             }
-          } catch (error) {
-            // В случае ошибки увеличиваем счетчик неудачных попыток
+
+            updatedHosts.push({
+              ...host,
+              // Сохраняем пользовательские данные
+              hostname: host.hostname, // Сохраняем пользовательское имя
+              original_hostname: host.original_hostname, // Сохраняем оригинальное имя
+              // Обновляем только техническую информацию
+              status: result.status as "online" | "offline",
+              device_status: result.device_status || host.device_status,
+              moonraker_version: result.moonraker_version || host.moonraker_version,
+              klippy_state: result.klippy_state || host.klippy_state,
+              printer_state: result.printer_state || host.printer_state,
+              printer_flags: result.printer_flags || host.printer_flags,
+              last_seen: new Date().toISOString(),
+              failed_attempts: 0, // Сбрасываем счетчик неудачных попыток
+              // Добавляем информацию о печати
+              print_progress: printInfo?.print_progress,
+              print_info: printInfo?.print_info
+            })
+          } else {
+            // Хост не ответил - увеличиваем счетчик неудачных попыток
             const currentFailedAttempts = host.failed_attempts || 0
             const newFailedAttempts = currentFailedAttempts + 1
             
             // Помечаем как оффлайн только после 3 неудачных попыток подряд
             const shouldMarkOffline = newFailedAttempts >= 3
             
-            return {
+            updatedHosts.push({
               ...host,
               // Сохраняем пользовательские данные
               hostname: host.hostname, // Сохраняем пользовательское имя
@@ -778,54 +751,65 @@ export function NetworkScanner() {
               device_status: shouldMarkOffline ? 'offline' : host.device_status,
               last_seen: new Date().toISOString(),
               failed_attempts: newFailedAttempts
-            }
+            })
           }
+        } catch (error) {
+          // В случае ошибки увеличиваем счетчик неудачных попыток
+          const currentFailedAttempts = host.failed_attempts || 0
+          const newFailedAttempts = currentFailedAttempts + 1
+          
+          // Помечаем как оффлайн только после 3 неудачных попыток подряд
+          const shouldMarkOffline = newFailedAttempts >= 3
+          
+          updatedHosts.push({
+            ...host,
+            // Сохраняем пользовательские данные
+            hostname: host.hostname, // Сохраняем пользовательское имя
+            original_hostname: host.original_hostname, // Сохраняем оригинальное имя
+            // Обновляем статус в зависимости от количества неудачных попыток
+            status: shouldMarkOffline ? 'offline' : 'online',
+            device_status: shouldMarkOffline ? 'offline' : host.device_status,
+            last_seen: new Date().toISOString(),
+            failed_attempts: newFailedAttempts
+          })
+        }
+      }
+
+      // Обновляем хосты, сохраняя пользовательские имена
+      setHosts(prevHosts => 
+        prevHosts.map(prevHost => {
+          const updatedHost = updatedHosts.find(h => h.id === prevHost.id)
+          if (updatedHost) {
+            // Проверяем, изменил ли пользователь имя
+            const hasCustomName = prevHost.hostname !== prevHost.original_hostname
+            
+            const newHost = {
+              ...prevHost,
+              status: updatedHost.status as "online" | "offline",
+              device_status: updatedHost.device_status,
+              moonraker_version: updatedHost.moonraker_version,
+              klippy_state: updatedHost.klippy_state,
+              printer_state: updatedHost.printer_state,
+              printer_flags: updatedHost.printer_flags,
+              last_seen: updatedHost.last_seen,
+              failed_attempts: updatedHost.failed_attempts,
+              // Добавляем информацию о печати
+              print_progress: updatedHost.print_progress,
+              print_info: updatedHost.print_info,
+              // Сохраняем пользовательское имя, если оно было изменено
+              hostname: hasCustomName ? prevHost.hostname : updatedHost.hostname,
+              original_hostname: updatedHost.original_hostname
+            }
+            
+            // Проверяем изменения статуса и отправляем уведомления
+            checkStatusChangeAndNotify(prevHost, newHost)
+            
+            return newHost
+          }
+          return prevHost
         })
       )
-
-                    // Обновляем хосты, сохраняя пользовательские имена
-              setHosts(prevHosts => 
-                prevHosts.map(prevHost => {
-                  const updatedHost = updatedHosts.find(h => h.id === prevHost.id)
-                  if (updatedHost) {
-                    // Проверяем, изменил ли пользователь имя
-                    const hasCustomName = prevHost.hostname !== prevHost.original_hostname
-                    
-                    const newHost = {
-                      ...prevHost,
-                      status: updatedHost.status as "online" | "offline",
-                      device_status: updatedHost.device_status,
-                      moonraker_version: updatedHost.moonraker_version,
-                      klippy_state: updatedHost.klippy_state,
-                      printer_state: updatedHost.printer_state,
-                      printer_flags: updatedHost.printer_flags,
-                      last_seen: updatedHost.last_seen,
-                      failed_attempts: updatedHost.failed_attempts,
-                      // Добавляем информацию о печати
-                      print_progress: updatedHost.print_progress,
-                      print_info: updatedHost.print_info,
-                      // Сохраняем пользовательское имя, если оно было изменено
-                      hostname: hasCustomName ? prevHost.hostname : updatedHost.hostname,
-                      original_hostname: updatedHost.original_hostname
-                    }
-                    
-                    console.log('Updated host with print info:', {
-                      id: newHost.id,
-                      hostname: newHost.hostname,
-                      print_progress: newHost.print_progress,
-                      print_info: newHost.print_info
-                    });
-                    
-                    return newHost as HostInfo
-
-                    // Проверяем изменения статуса и отправляем уведомления
-                    checkStatusChangeAndNotify(prevHost, newHost)
-                    
-                    return newHost
-                  }
-                  return prevHost
-                })
-              )
+      
       setOnlineHosts(updatedHosts.filter(h => h.status === 'online').length)
     } catch (error) {
       // Silent fail for auto-refresh
@@ -992,6 +976,24 @@ export function NetworkScanner() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Update notification */}
+            {updateInfo?.update_available && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-blue-700 dark:text-blue-300">
+                  {t.updateAvailable}: {updateInfo.latest_version}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={checkForUpdates}
+                  className="h-6 px-2 text-xs"
+                >
+                  {t.checkForUpdates}
+                </Button>
+              </div>
+            )}
+            
             {/* Theme Toggle Buttons */}
             <div className="flex items-center border rounded-lg p-1">
               {(["light", "dark", "system"] as const).map((theme) => (
@@ -1097,19 +1099,7 @@ export function NetworkScanner() {
                         </div>
                       </div>
 
-                      <div>
-                        <Label htmlFor="scan-type">{t.scanType}</Label>
-                        <Select defaultValue="api">
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="api">{t.apiResponseScan}</SelectItem>
-                            <SelectItem value="ping">{t.pingScan}</SelectItem>
-                            <SelectItem value="port">{t.portScan}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+
                     </TabsContent>
 
                     <TabsContent value="ssh" className="space-y-4 mt-4">
@@ -1354,16 +1344,7 @@ export function NetworkScanner() {
                   </div>
                 )}
                 
-                {/* Manual refresh button */}
-                <Button 
-                  onClick={() => refreshHostsStatus()}
-                  variant="outline"
-                  size="sm"
-                  disabled={hosts.length === 0}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh Status
-                </Button>
+
               </div>
             </div>
             

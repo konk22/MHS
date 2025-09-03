@@ -56,10 +56,6 @@ export interface Translations {
   subnetRanges: string
   addSubnet: string
   networkName: string
-  scanType: string
-  apiResponseScan: string
-  pingScan: string
-  portScan: string
 
   // SSH Tab
   defaultSSHUsername: string

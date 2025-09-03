@@ -12,11 +12,11 @@ pub const MOONRAKER_PORT: u16 = 7125;
 pub const WEBCAM_PORT: u16 = 8080;
 
 // Новые константы для оптимизированного сканирования
-pub const PORT_SCAN_CONCURRENCY: usize = 100; // Максимум одновременных портовых проверок
-pub const API_SCAN_CONCURRENCY: usize = 20;   // Максимум одновременных API запросов
-pub const PORT_SCAN_RETRY_COUNT: u32 = 2;     // Количество повторных попыток для портов
+pub const PORT_SCAN_CONCURRENCY: usize = 200; // Максимум одновременных портовых проверок
+pub const API_SCAN_CONCURRENCY: usize = 50;   // Максимум одновременных API запросов
+pub const PORT_SCAN_RETRY_COUNT: u32 = 1;     // Количество повторных попыток для портов
 pub const API_SCAN_RETRY_COUNT: u32 = 1;      // Количество повторных попыток для API
-pub const SLOW_NETWORK_TIMEOUT_MS: u64 = 2000; // Таймаут для медленных сетей
+pub const SLOW_NETWORK_TIMEOUT_MS: u64 = 1500; // Таймаут для медленных сетей
 
 /// Notification settings for different printer states
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -72,7 +72,7 @@ pub async fn scan_host(ip: &str) -> Option<HostInfo> {
             Err(_) => {
                 // If this is not the last attempt, wait a bit and try again
                 if attempt < API_SCAN_RETRY_COUNT - 1 {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
                     continue;
                 }
             }
@@ -151,7 +151,7 @@ pub async fn check_host_status(ip: &str) -> HostStatusResponse {
             Err(_) => {
                 // If this is not the last attempt, wait a bit and try again
                 if attempt < API_SCAN_RETRY_COUNT - 1 {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
                     continue;
                 }
             }
@@ -239,8 +239,8 @@ pub async fn scan_network(subnets: Vec<SubnetConfig>) -> MoonrakerResult<ScanRes
             }
         }
         
-        // Small delay between chunks to be network-friendly
-        tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
+        // Minimal delay between chunks to be network-friendly
+        tokio::time::sleep(tokio::time::Duration::from_millis(5)).await;
     }
 
     Ok(ScanResult {
