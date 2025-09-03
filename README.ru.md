@@ -20,15 +20,15 @@
 ## Скриншоты
 
 ### Главный интерфейс
-![Главный интерфейс](./screenshots/readme/MHS_main.png)
+![Главный интерфейс](./readme/screenshots/MHS_main.png)
 
 ### Панель настроек
-![Панель настроек](./screenshots/readme/MHS_settings1.png)
-![Панель настроек](./screenshots/readme/MHS_settings2.png)
-![Панель настроек](./screenshots/readme/MHS_settings3.png)
+![Панель настроек](./readme/screenshots/MHS_settings1.png)
+![Панель настроек](./readme/screenshots/MHS_settings2.png)
+![Панель настроек](./readme/screenshots/MHS_settings3.png)
 
 ### Детали хоста
-![Детали хоста](./screenshots/readme/MHS_webcam.png)
+![Детали хоста](./readme/screenshots/MHS_webcam.png)
 
 ## Быстрый старт
 

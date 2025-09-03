@@ -20,15 +20,15 @@ Desktop application for discovering, monitoring, and controlling 3D printers on 
 ## Screenshots
 
 ### Main Interface
-![Main Interface](./screenshots/readme/MHS_main.png)
+![Main Interface](./readme/screenshots/MHS_main.png)
 
 ### Settings Panel
-![Settings Panel](./screenshots/readme/MHS_settings1.png)
-![Settings Panel](./screenshots/readme/MHS_settings2.png)
-![Settings Panel](./screenshots/readme/MHS_settings3.png)
+![Settings Panel](./readme/screenshots/MHS_settings1.png)
+![Settings Panel](./readme/screenshots/MHS_settings2.png)
+![Settings Panel](./readme/screenshots/MHS_settings3.png)
 
 ### Host Details
-![Host Details](./screenshots/readme/MHS_webcam.png)
+![Host Details](./readme/screenshots/MHS_webcam.png)
 
 ## Quick Start
 
