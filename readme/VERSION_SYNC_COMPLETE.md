@@ -7,9 +7,12 @@
 ## ✅ Выполненные задачи
 
 ### 1. Синхронизация версий в файлах
-- ✅ **package.json**: `"version": "0.1.0"`
-- ✅ **src-tauri/Cargo.toml**: `version = "0.1.0"`
-- ✅ **src-tauri/tauri.conf.json**: `"version": "0.1.0"`
+- ✅ **package.json**: `"version": "0.0.13"`
+- ✅ **src-tauri/Cargo.toml**: `version = "0.0.13"`
+- ✅ **src-tauri/tauri.conf.json**: `"version": "0.0.13"`
+- ✅ **src/lib/translations/en.ts**: `version: "Version 0.0.13"`
+- ✅ **src/lib/translations/ru.ts**: `version: "Версия 0.0.13"`
+- ✅ **src/lib/translations/de.ts**: `version: "Version 0.0.13"`
 
 ### 2. Создание автоматизации
 - ✅ **scripts/update-version.js** - скрипт обновления версий
@@ -26,22 +29,22 @@
 ### Быстрое обновление версии
 ```bash
 # Обновить версию во всех файлах
-pnpm version:update 0.1.1
+pnpm version:update 0.0.14
 ```
 
 ### Создание релиза
 ```bash
 # Создать релиз с git tag
-pnpm release 0.1.1 "Исправления багов"
+pnpm release 0.0.14 "Исправления багов"
 ```
 
 ### Ручное обновление
 ```bash
 # Обновить только версию
-node scripts/update-version.js 0.1.1
+node scripts/update-version.js 0.0.14
 
 # Создать релиз с проверками
-node scripts/release.js 0.1.1 "Описание изменений"
+node scripts/release.js 0.0.14 "Описание изменений"
 ```
 
 ## 📊 Проверка версий
@@ -56,13 +59,19 @@ grep '^version =' src-tauri/Cargo.toml
 
 # Проверить версию в tauri.conf.json
 node -p "require('./src-tauri/tauri.conf.json').version"
+
+# Проверить версию в файлах локализации
+grep 'version:' src/lib/translations/*.ts
 ```
 
 ### Ожидаемый результат
 ```
-package.json: 0.1.0
-Cargo.toml: version = "0.1.0"
-tauri.conf.json: 0.1.0
+package.json: 0.0.13
+Cargo.toml: version = "0.0.13"
+tauri.conf.json: 0.0.13
+en.ts: version: "Version 0.0.13"
+ru.ts: version: "Версия 0.0.13"
+de.ts: version: "Version 0.0.13"
 ```
 
 ## 🔧 Процесс создания релиза
@@ -78,20 +87,20 @@ tauri.conf.json: 0.1.0
 ### Ручной процесс
 ```bash
 # 1. Обновить версии
-node scripts/update-version.js 0.1.1
+node scripts/update-version.js 0.0.14
 
 # 2. Проверить изменения
 git diff
 
 # 3. Закоммитить изменения
 git add .
-git commit -m "chore: bump version to 0.1.1"
+git commit -m "chore: bump version to 0.0.14"
 
 # 4. Создать тег
-git tag -a v0.1.1 -m "Release v0.1.1"
+git tag -a v0.0.14 -m "Release v0.0.14"
 
 # 5. Опубликовать
-git push origin v0.1.1
+git push origin v0.0.14
 git push origin main
 ```
 

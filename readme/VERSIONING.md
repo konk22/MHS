@@ -12,7 +12,7 @@
 ```json
 {
   "name": "moonraker-host-scanner",
-  "version": "0.1.0",
+  "version": "0.0.13",
   // ...
 }
 ```
@@ -21,17 +21,29 @@
 ```toml
 [package]
 name = "moonrakerhostscanner"
-version = "0.1.0"
-description = "A Tauri App for scanning Moonraker hosts"
+version = "0.0.13"
+description = "A Tauri App for scanning 3D printer hosts"
 ```
 
 ### 3. src-tauri/tauri.conf.json
 ```json
 {
   "productName": "Moonraker Host Scanner",
-  "version": "0.1.0",
+  "version": "0.0.13",
   "identifier": "com.tormyhseviv.moonrakerhostscanner"
 }
+```
+
+### 4. Файлы локализации
+```typescript
+// src/lib/translations/en.ts
+version: "Version 0.0.13"
+
+// src/lib/translations/ru.ts
+version: "Версия 0.0.13"
+
+// src/lib/translations/de.ts
+version: "Version 0.0.13"
 ```
 
 ## 🚀 Автоматическое управление версиями
@@ -44,7 +56,8 @@ description = "A Tauri App for scanning Moonraker hosts"
 pnpm version:update <version>
 
 # Примеры
-pnpm version:update 0.1.1
+pnpm version:update 0.0.14
+pnpm version:update 0.1.0
 pnpm version:update 1.0.0
 ```
 
@@ -54,9 +67,9 @@ pnpm version:update 1.0.0
 pnpm release <version> [message]
 
 # Примеры
-pnpm release 0.1.1 "Исправления багов"
-pnpm release 1.0.0 "Первая стабильная версия"
-pnpm release 0.2.0
+pnpm release 0.0.14 "Исправления багов"
+pnpm release 0.1.0 "Первая стабильная версия"
+pnpm release 0.0.15
 ```
 
 ### Ручное обновление
@@ -65,10 +78,10 @@ pnpm release 0.2.0
 
 ```bash
 # Обновить только версию
-node scripts/update-version.js 0.1.1
+node scripts/update-version.js 0.0.14
 
 # Создать релиз с проверками
-node scripts/release.js 0.1.1 "Описание изменений"
+node scripts/release.js 0.0.14 "Описание изменений"
 ```
 
 ## 📋 Процесс создания релиза
@@ -83,6 +96,7 @@ node scripts/release.js 0.1.1 "Описание изменений"
    - Обновляет версию в `package.json`
    - Обновляет версию в `Cargo.toml`
    - Обновляет версию в `tauri.conf.json`
+   - Обновляет версию в файлах локализации
 
 3. **Создание коммита**
    - Добавляет все изменения в git
