@@ -62,6 +62,7 @@ pub fn run() {
             commands::system::open_ssh_connection_command,
             commands::system::send_system_notification_command,
             commands::system::open_url_in_browser_command,
+            commands::system::check_notification_status_command,
             
             // Updater commands
             commands::updater::check_for_updates_command,

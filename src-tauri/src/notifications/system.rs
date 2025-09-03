@@ -5,6 +5,25 @@
 
 use notify_rust::Notification;
 
+/// Checks notification permissions on macOS
+#[cfg(target_os = "macos")]
+pub fn check_notification_permissions() -> Result<(), String> {
+    use std::process::Command;
+    
+    // Check if notifications are enabled in System Preferences
+    let output = Command::new("osascript")
+        .args(&["-e", "tell application \"System Events\" to get properties of process \"SystemUIServer\""])
+        .output()
+        .map_err(|e| format!("Failed to check system permissions: {}", e))?;
+    
+    if output.status.success() {
+        eprintln!("System permissions check successful");
+        Ok(())
+    } else {
+        Err("System permissions check failed".to_string())
+    }
+}
+
 /// Sends a system notification using the platform's native notification system
 /// 
 /// # Arguments
@@ -18,8 +37,16 @@ pub fn send_notification(title: &str, body: &str) {
         static INIT: Once = Once::new();
         
         INIT.call_once(|| {
-            // Try to set the application name, but don't fail if it doesn't work
-            let _ = notify_rust::set_application("com.apple.Safari");
+            // Check permissions first
+            if let Err(e) = check_notification_permissions() {
+                eprintln!("Notification permission check failed: {}", e);
+            }
+            
+            // Use the correct bundle identifier from tauri.conf.json
+            match notify_rust::set_application("com.tormyhseviv.moonrakerhostscanner") {
+                Ok(_) => eprintln!("Successfully set application for notifications"),
+                Err(e) => eprintln!("Failed to set application for notifications: {}", e),
+            }
         });
     }
     
@@ -28,7 +55,7 @@ pub fn send_notification(title: &str, body: &str) {
         .body(body)
         .icon("printer") // Printer icon
         .show() {
-        Ok(_) => (),
+        Ok(_) => eprintln!("Notification sent successfully: {} - {}", title, body),
         Err(e) => eprintln!("Failed to send notification: {}", e),
     }
 }

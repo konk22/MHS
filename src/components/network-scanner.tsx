@@ -1160,13 +1160,28 @@ export function NetworkScanner() {
                           ))}
                           
                                                       {/* Test notification button */}
-                            <div className="pt-4 border-t">
+                            <div className="pt-4 border-t space-y-2">
                               <Button 
                                 onClick={() => sendNotification('Test Notification', 'This is a test notification to verify the system is working')}
                                 variant="outline"
                                 className="w-full"
                               >
                                 Test Notification
+                              </Button>
+                              
+                              <Button 
+                                onClick={async () => {
+                                  try {
+                                    const result = await invokeTauri('check_notification_status_command')
+                                    alert(`Notification status: ${result}`)
+                                  } catch (error) {
+                                    alert(`Failed to check notification status: ${error}`)
+                                  }
+                                }}
+                                variant="outline"
+                                className="w-full"
+                              >
+                                Check Notification Status
                               </Button>
                             </div>
                         </div>

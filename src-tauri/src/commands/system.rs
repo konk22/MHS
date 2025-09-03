@@ -4,7 +4,27 @@
 //! opening URLs, sending notifications, and SSH connections.
 
 
-use crate::notifications::system::send_notification;
+use crate::notifications::system::{send_notification, check_notification_permissions};
+
+/// Checks notification permissions and status
+/// 
+/// # Returns
+/// * Success or error message
+#[tauri::command]
+pub fn check_notification_status_command() -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        match check_notification_permissions() {
+            Ok(_) => Ok("Notification permissions check successful".to_string()),
+            Err(e) => Err(format!("Notification permissions check failed: {}", e)),
+        }
+    }
+    
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok("Notification permissions check not required on this platform".to_string())
+    }
+}
 
 /// Opens a webcam stream in the default browser
 /// 
