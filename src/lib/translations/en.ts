@@ -67,7 +67,7 @@ export const en = {
   offline: "Offline",
 
   // About Tab
-  version: "Version 0.0.12",
+  version: "Version 0.0.13",
   powerfulNetworkTool: "Network tool for discovering and managing 3D printers",
 
   // Language Tab
