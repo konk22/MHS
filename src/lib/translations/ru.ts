@@ -68,7 +68,7 @@ export const ru = {
   offline: "Оффлайн",
 
   // About Tab
-  version: "Версия 0.0.13",
+  version: "Версия 0.0.14",
   powerfulNetworkTool: "Сетевой инструмент для поиска и управления 3D принтерами",
 
   // Language Tab
