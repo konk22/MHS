@@ -51,6 +51,11 @@ pub fn run() {
             commands::printer::control_printer_command,
             commands::printer::get_printer_status_command,
             
+            // Print info commands
+            commands::print_info::get_print_info_command,
+            commands::print_info::get_print_progress_command,
+            commands::print_info::format_duration_command,
+            
             // System commands
             commands::system::open_webcam_command,
             commands::system::open_host_in_browser_command,

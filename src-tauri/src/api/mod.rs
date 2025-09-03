@@ -6,7 +6,9 @@
 pub mod client;
 pub mod moonraker;
 pub mod printer;
+pub mod print_info;
 
 pub use client::*;
 pub use moonraker::*;
 pub use printer::*;
+pub use print_info::*;

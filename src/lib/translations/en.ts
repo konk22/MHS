@@ -110,4 +110,16 @@ export const en = {
   updateCheckFailed: "Update check failed",
   repository: "Repository",
   releases: "Releases",
+  
+  // Print Information
+  printProgress: "Print Progress",
+  filename: "Filename",
+  printDuration: "Print Duration",
+  totalDuration: "Total Duration",
+  estimatedTime: "Estimated Time",
+  currentLayer: "Current Layer",
+  totalLayers: "Total Layers",
+  currentHeight: "Current Height",
+  totalHeight: "Total Height",
+  printStats: "Print Statistics",
 }

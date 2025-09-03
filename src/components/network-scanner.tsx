@@ -101,6 +101,12 @@ interface HostInfo {
   }
   last_seen?: string
   failed_attempts?: number // Counter for consecutive failed attempts
+  print_progress?: number // Current print progress percentage (0-100)
+  print_info?: {
+    filename: string
+    print_duration: number
+    total_duration: number
+  }
 }
 
 interface MoonrakerServerInfo {
@@ -205,6 +211,51 @@ export function NetworkScanner() {
       return await (window as any).__TAURI__.core.invoke(command, args)
     }
     throw new Error('Tauri API not available')
+  }
+
+  // Get print information for a host
+  const getPrintInfo = async (host: HostInfo) => {
+    try {
+      const printInfo = await invokeTauri('get_print_info_command', { 
+        host: host.ip_address, 
+        port: 7125 
+      })
+      
+      if (printInfo) {
+        // Проверяем, что у нас есть все необходимые поля
+        if (!printInfo.progress || typeof printInfo.progress.progress !== 'number') {
+          return null;
+        }
+        
+        const result = {
+          print_progress: printInfo.progress.progress,
+          print_info: {
+            filename: printInfo.filename || 'Unknown',
+            print_duration: printInfo.progress.print_duration || 0,
+            total_duration: printInfo.progress.total_duration || 0,
+          }
+        };
+        return result;
+      }
+    } catch (error) {
+      console.error('Failed to get print info:', error)
+    }
+    return null
+  }
+
+  // Format duration in human readable format
+  const formatDuration = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${secs}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
   }
 
   // Отправка системного уведомления
@@ -662,6 +713,13 @@ export function NetworkScanner() {
                 device_status: result.device_status
               });
               
+              // Получаем информацию о печати если хост печатает
+              let printInfo = null;
+              
+              if (result.printer_flags?.printing) {
+                printInfo = await getPrintInfo(host);
+              }
+
               return {
                 ...host,
                 // Сохраняем пользовательские данные
@@ -675,7 +733,10 @@ export function NetworkScanner() {
                 printer_state: result.printer_state || host.printer_state,
                 printer_flags: result.printer_flags || host.printer_flags,
                 last_seen: new Date().toISOString(),
-                failed_attempts: 0 // Сбрасываем счетчик неудачных попыток
+                failed_attempts: 0, // Сбрасываем счетчик неудачных попыток
+                // Добавляем информацию о печати
+                print_progress: printInfo?.print_progress,
+                print_info: printInfo?.print_info
               }
             } else {
               // Хост не ответил - увеличиваем счетчик неудачных попыток
@@ -740,10 +801,22 @@ export function NetworkScanner() {
                       printer_flags: updatedHost.printer_flags,
                       last_seen: updatedHost.last_seen,
                       failed_attempts: updatedHost.failed_attempts,
+                      // Добавляем информацию о печати
+                      print_progress: updatedHost.print_progress,
+                      print_info: updatedHost.print_info,
                       // Сохраняем пользовательское имя, если оно было изменено
                       hostname: hasCustomName ? prevHost.hostname : updatedHost.hostname,
                       original_hostname: updatedHost.original_hostname
-                    } as HostInfo
+                    }
+                    
+                    console.log('Updated host with print info:', {
+                      id: newHost.id,
+                      hostname: newHost.hostname,
+                      print_progress: newHost.print_progress,
+                      print_info: newHost.print_info
+                    });
+                    
+                    return newHost as HostInfo
 
                     // Проверяем изменения статуса и отправляем уведомления
                     checkStatusChangeAndNotify(prevHost, newHost)
@@ -842,7 +915,7 @@ export function NetworkScanner() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, host?: HostInfo) => {
     const statusConfig = {
       printing: { color: "bg-blue-100 text-blue-800", icon: Activity },
       paused: { color: "bg-yellow-100 text-yellow-800", icon: Pause },
@@ -860,6 +933,16 @@ export function NetworkScanner() {
       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
         <Icon className="h-3 w-3" />
         {t[status as keyof typeof t] || status}
+        {status === 'printing' && host?.print_progress && (
+          <span className="ml-1 font-bold">
+            {Math.round(host.print_progress)}%
+          </span>
+        )}
+              {status === 'printing' && !host?.print_progress && (
+        <span className="ml-1 text-xs text-muted-foreground">
+          (no progress)
+        </span>
+      )}
       </span>
     )
   }
@@ -1358,7 +1441,7 @@ export function NetworkScanner() {
                           {host.ip_address}
                         </Button>
                       </TableCell>
-                                              <TableCell>{getStatusBadge(getPrinterStatus(host))}</TableCell>
+                                              <TableCell>{getStatusBadge(getPrinterStatus(host), host)}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -1392,8 +1475,10 @@ export function NetworkScanner() {
                       <TableRow>
                         <TableCell colSpan={7} className="bg-muted/30">
                           <div className="py-4 space-y-2">
-                            <h4 className="font-medium text-sm">{t.apiControls}</h4>
-                            <div className="flex gap-2">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="font-medium text-sm">{t.apiControls}</h4>
+                                <div className="flex gap-2">
                               <Button
                                 size="sm"
                                 onClick={() => handleAPIAction("Start", host.id)}
@@ -1457,6 +1542,20 @@ export function NetworkScanner() {
                                 )}
                                 {t.emergencyStop}
                               </Button>
+                            </div>
+                              </div>
+                              
+                              {/* Print Information */}
+                              {host.print_info && (
+                                <div className="text-right space-y-1">
+                                  <h4 className="font-medium text-sm">{t.printStats}</h4>
+                                  <div className="text-xs space-y-1 text-muted-foreground">
+                                    <div><span className="font-medium">{t.filename}:</span> {host.print_info.filename}</div>
+                                    <div><span className="font-medium">{t.printDuration}:</span> {formatDuration(host.print_info.print_duration)}</div>
+                                    <div><span className="font-medium">{t.totalDuration}:</span> {formatDuration(host.print_info.total_duration)}</div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </TableCell>

@@ -114,6 +114,18 @@ export interface Translations {
   updateCheckFailed: string
   repository: string
   releases: string
+  
+  // Print Information
+  printProgress: string
+  filename: string
+  printDuration: string
+  totalDuration: string
+  estimatedTime: string
+  currentLayer: string
+  totalLayers: string
+  currentHeight: string
+  totalHeight: string
+  printStats: string
 }
 
 export const translations: Record<string, Translations> = {

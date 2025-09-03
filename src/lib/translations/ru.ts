@@ -110,4 +110,16 @@ export const ru = {
   updateCheckFailed: "Ошибка проверки обновлений",
   repository: "Репозиторий",
   releases: "Релизы",
+  
+  // Print Information
+  printProgress: "Прогресс печати",
+  filename: "Имя файла",
+  printDuration: "Время печати",
+  totalDuration: "Общее время",
+  estimatedTime: "Оставшееся время",
+  currentLayer: "Текущий слой",
+  totalLayers: "Всего слоев",
+  currentHeight: "Текущая высота",
+  totalHeight: "Общая высота",
+  printStats: "Статистика печати",
 }

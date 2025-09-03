@@ -110,4 +110,16 @@ export const de = {
   updateCheckFailed: "Update-Prüfung fehlgeschlagen",
   repository: "Repository",
   releases: "Releases",
+  
+  // Print Information
+  printProgress: "Druckfortschritt",
+  filename: "Dateiname",
+  printDuration: "Druckdauer",
+  totalDuration: "Gesamtdauer",
+  estimatedTime: "Geschätzte Zeit",
+  currentLayer: "Aktuelle Schicht",
+  totalLayers: "Gesamte Schichten",
+  currentHeight: "Aktuelle Höhe",
+  totalHeight: "Gesamthöhe",
+  printStats: "Druckstatistiken",
 }
