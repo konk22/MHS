@@ -1,0 +1,282 @@
+name: Build & Release (Tagged Versions Only)
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+jobs:
+  build-macos-arm:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install Rust target for macOS ARM
+        run: rustup target add aarch64-apple-darwin
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build Next.js
+        run: pnpm build
+      - name: Build Tauri application for macOS ARM
+        run: pnpm tauri build --target aarch64-apple-darwin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload macOS ARM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-macos-aarch64
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/
+          retention-days: 30
+  build-macos-x86:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install Rust target for macOS x86
+        run: rustup target add x86_64-apple-darwin
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build Next.js
+        run: pnpm build
+      - name: Build Tauri application for macOS x86
+        run: pnpm tauri build --target x86_64-apple-darwin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload macOS x86 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-macos-x86_64
+          path: src-tauri/target/x86_64-apple-darwin/release/bundle/
+          retention-days: 30
+  build-windows-x86:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install Rust target for Windows x86
+        run: rustup target add x86_64-pc-windows-msvc
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build Next.js
+        run: pnpm build
+      - name: Build Tauri application for Windows x86
+        run: pnpm tauri build --target x86_64-pc-windows-msvc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Windows x86 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-windows-x86_64
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/
+          retention-days: 30
+  build-windows-arm:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install Rust target for Windows ARM
+        run: rustup target add aarch64-pc-windows-msvc
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build Next.js
+        run: pnpm build
+      - name: Build Tauri application for Windows ARM
+        run: pnpm tauri build --target aarch64-pc-windows-msvc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Windows ARM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-windows-aarch64
+          path: src-tauri/target/aarch64-pc-windows-msvc/release/bundle/
+          retention-days: 30
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    needs: [build-macos-arm, build-macos-x86, build-windows-x86, build-windows-arm]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Download macOS ARM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: moonraker-host-scanner-macos-aarch64
+          path: ./artifacts/macos-aarch64
+      - name: Download macOS x86 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: moonraker-host-scanner-macos-x86_64
+          path: ./artifacts/macos-x86_64
+      - name: Download Windows x86 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: moonraker-host-scanner-windows-x86_64
+          path: ./artifacts/windows-x86_64
+      - name: Download Windows ARM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: moonraker-host-scanner-windows-aarch64
+          path: ./artifacts/windows-aarch64
+      - name: Debug artifacts structure
+        run: |
+          echo "Artifacts structure:"
+          find ./artifacts -type f || true
+      - name: Collect artifacts
+        id: collect_artifacts
+        run: |
+          files=$(find ./artifacts -type f \( -name "*.dmg" -o -name "*.exe" \) | tr '\n' ',' | sed 's/,$//')
+          if [ -z "$files" ]; then
+            echo "❌ No .dmg or .exe files found!"
+            exit 1
+          fi
+          echo "files=$files" >> $GITHUB_OUTPUT
+          echo "Found artifacts:"
+          echo "$files" | tr ',' '\n'
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }} (macOS ARM + x86, Windows x86 + ARM)
+          draft: false
+          prerelease: false
+          body: |
+            ## Moonraker Host Scanner ${{ github.ref_name }}
+
+            ### 🍎 macOS Builds
+            - **macOS ARM64** (`.dmg` for Apple Silicon Macs)
+            - **macOS x86_64** (`.dmg` for Intel Macs)
+
+            ### 🪟 Windows Builds
+            - **Windows x86_64** (`.exe` for Intel/AMD PCs)
+            - **Windows ARM64** (`.exe` for ARM-based Windows devices)
+
+            ### 📦 Installation
+            #### macOS
+            1. Download the `.dmg` file
+            2. Open the DMG and drag the app to Applications
+            3. **Remove from quarantine** (required for unsigned apps):
+               ```bash
+               sudo xattr -rd com.apple.quarantine /Applications/Moonraker\ Host\ Scanner.app
+               ```
+            4. Launch Moonraker Host Scanner
+            #### Windows
+            1. Download the `.exe` file
+            2. Run the installer and follow the instructions
+            3. Launch Moonraker Host Scanner
+
+            ### 🔧 Features
+            - Network scanning for Moonraker printers
+            - Real-time printer status monitoring
+            - Printer control (start, pause, stop, emergency stop)
+            - Webcam streaming support
+            - SSH connection support
+            - System notifications
+            - Multi-language support (English, Russian, German)
+            - Dark/Light theme support
+
+            ### 🐛 Bug Reports
+            If you encounter any issues, please report them on GitHub.
+          files: ${{ steps.collect_artifacts.outputs.files }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
