@@ -266,13 +266,11 @@ jobs:
         with:
           targets: aarch64-unknown-linux-gnu
 
-      - name: Build inside dockcross (ARM64)
+      - name: Build Linux ARM inside docker
         run: |
-          docker run --rm -v $PWD:/work -w /work dockcross/linux-arm64 bash -c "\
-            rustup target add aarch64-unknown-linux-gnu && \
-            cargo build --release --target aarch64-unknown-linux-gnu"
-        
-
+          docker run --rm -v $PWD:/work -w /work clux/muslrust:stable-arm64 \
+            bash -c "rustup target add aarch64-unknown-linux-gnu && \
+                      cargo build --release --target aarch64-unknown-linux-gnu"
   release:
     runs-on: ubuntu-latest
     permissions:
