@@ -85,8 +85,7 @@ export interface Translations {
   guestNetwork: string
   noSubnetsEnabled: string
   
-  // Hostname Management
-  resetHostname: string
+      // Hostname Management
   
   
   // Context Menu

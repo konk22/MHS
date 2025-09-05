@@ -4,7 +4,10 @@
 //! opening URLs, sending notifications, and SSH connections.
 
 
-use crate::notifications::system::{send_notification, check_notification_permissions};
+use crate::notifications::system::send_notification;
+
+#[cfg(target_os = "macos")]
+use crate::notifications::system::check_notification_permissions;
 
 /// Checks notification permissions and status
 /// 

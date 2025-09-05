@@ -68,7 +68,7 @@ export const en = {
   checking: "Checking",
 
   // About Tab
-  version: "Version 0.0.15",
+  version: "Version 0.0.14",
   powerfulNetworkTool: "Network tool for discovering and managing 3D printers",
 
   // Language Tab
@@ -82,8 +82,7 @@ export const en = {
   guestNetwork: "Guest Network",
   noSubnetsEnabled: "No subnets enabled for scanning",
   
-  // Hostname Management
-  resetHostname: "Reset to original hostname",
+      // Hostname Management
   
   
   // Context Menu

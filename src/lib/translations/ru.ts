@@ -69,7 +69,7 @@ export const ru = {
   checking: "Проверка",
 
   // About Tab
-  version: "Версия 0.0.15",
+  version: "Версия 0.0.14",
   powerfulNetworkTool: "Сетевой инструмент для поиска и управления 3D принтерами",
 
   // Language Tab
@@ -83,8 +83,7 @@ export const ru = {
   guestNetwork: "Гостевая Сеть",
   noSubnetsEnabled: "Нет активных подсетей для сканирования",
   
-  // Hostname Management
-  resetHostname: "Сбросить к оригинальному имени",
+      // Hostname Management
   
   
   // Context Menu

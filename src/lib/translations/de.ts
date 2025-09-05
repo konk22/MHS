@@ -83,8 +83,7 @@ export const de = {
   guestNetwork: "Gastnetzwerk",
   noSubnetsEnabled: "Keine Subnetze für das Scanning aktiviert",
   
-  // Hostname Management
-  resetHostname: "Zum ursprünglichen Hostname zurücksetzen",
+      // Hostname Management
   
   
   // Context Menu

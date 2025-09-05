@@ -109,7 +109,6 @@ interface HostInfo {
     total_duration: number
   }
   order?: number // Order index for manual sorting
-  _hostname_reset?: boolean // Flag to track if hostname was reset to original
 }
 
 interface MoonrakerServerInfo {
@@ -305,8 +304,7 @@ export function NetworkScanner() {
         const hostsWithOriginal = parsed.map((host: any, index: number) => ({
           ...host,
           original_hostname: host.original_hostname || host.hostname,
-          order: host.order !== undefined ? host.order : index, // Инициализируем порядок если его нет
-          _hostname_reset: host._hostname_reset || false // Сохраняем флаг сброса имени
+          order: host.order !== undefined ? host.order : index // Инициализируем порядок если его нет
         }))
         setHosts(hostsWithOriginal)
         setOnlineHosts(hostsWithOriginal.filter((h: HostInfo) => h.status === 'online').length)
@@ -486,27 +484,14 @@ export function NetworkScanner() {
               
               if (existingHost) {
                 // Если хост уже существует, сохраняем его порядок и пользовательские данные
-                console.log('Processing existing host:', {
-                  ip: existingHost.ip_address,
-                  current_hostname: existingHost.hostname,
-                  original_hostname: existingHost.original_hostname,
-                  new_hostname: newHost.hostname,
-                  _hostname_reset: existingHost._hostname_reset
-                })
-                
-                const finalHostname = existingHost._hostname_reset 
-                  ? newHost.hostname // Если имя было сброшено, используем новое имя с сервера
-                  : existingHost.hostname // Иначе сохраняем текущее имя (пользовательское или оригинальное)
-                
-                console.log('Final hostname decision:', finalHostname)
-                
                 updatedHosts.push({
                   ...newHost,
                   original_hostname: newHost.hostname,
-                  hostname: finalHostname,
+                  hostname: (existingHost.hostname !== existingHost.original_hostname)
+                    ? existingHost.hostname // Сохраняем пользовательское имя, если оно было изменено
+                    : newHost.hostname, // Используем новое имя с сервера, если пользователь не изменял
                   failed_attempts: existingHost.failed_attempts || 0,
-                  order: existingHost.order || 0,
-                  _hostname_reset: false // Всегда сбрасываем флаг после обработки
+                  order: existingHost.order || 0
                 })
               } else {
                 // Новый хост - добавляем в конец
@@ -664,29 +649,10 @@ export function NetworkScanner() {
   const handleEditHostname = (hostId: string, newHostname: string) => {
     setHosts((prev) => prev.map((h) => (h.id === hostId ? { 
       ...h, 
-      hostname: newHostname,
-      _hostname_reset: false // Сбрасываем флаг при редактировании
+      hostname: newHostname
     } : h)))
   }
 
-  const handleResetHostname = (hostId: string) => {
-    console.log('Resetting hostname for host:', hostId)
-    setHosts((prev) =>
-      prev.map((h) => {
-        if (h.id === hostId) {
-          console.log('Before reset:', { hostname: h.hostname, original_hostname: h.original_hostname, _hostname_reset: h._hostname_reset })
-          const updated = { 
-            ...h, 
-            hostname: h.original_hostname,
-            _hostname_reset: true // Помечаем, что имя было сброшено на оригинальное
-          }
-          console.log('After reset:', { hostname: updated.hostname, original_hostname: updated.original_hostname, _hostname_reset: updated._hostname_reset })
-          return updated
-        }
-        return h
-      })
-    )
-  }
 
   // Функция для обновления состояния хостов
   const refreshHostsStatus = async () => {
@@ -729,52 +695,34 @@ export function NetworkScanner() {
               failed_attempts: 0, // Сбрасываем счетчик неудачных попыток
               // Добавляем информацию о печати
               print_progress: printInfo?.print_progress,
-              print_info: printInfo?.print_info,
-              // Сохраняем флаг сброса имени
-              _hostname_reset: host._hostname_reset || false
+              print_info: printInfo?.print_info
             })
           } else {
-            // Хост не ответил - увеличиваем счетчик неудачных попыток
-            const currentFailedAttempts = host.failed_attempts || 0
-            const newFailedAttempts = currentFailedAttempts + 1
-            
-            // Помечаем как оффлайн только после 3 неудачных попыток подряд
-            const shouldMarkOffline = newFailedAttempts >= 3
-            
+            // Хост не ответил - помечаем как offline
             updatedHosts.push({
               ...host,
               // Сохраняем пользовательские данные
               hostname: host.hostname, // Сохраняем пользовательское имя
               original_hostname: host.original_hostname, // Сохраняем оригинальное имя
-              // Обновляем статус в зависимости от количества неудачных попыток
-              status: shouldMarkOffline ? 'offline' : 'online',
-              device_status: shouldMarkOffline ? 'offline' : host.device_status,
+              // Помечаем как offline
+              status: 'offline',
+              device_status: 'offline',
               last_seen: new Date().toISOString(),
-              failed_attempts: newFailedAttempts,
-              // Сохраняем флаг сброса имени
-              _hostname_reset: host._hostname_reset || false
+              failed_attempts: (host.failed_attempts || 0) + 1
             })
           }
         } catch (error) {
-          // В случае ошибки увеличиваем счетчик неудачных попыток
-          const currentFailedAttempts = host.failed_attempts || 0
-          const newFailedAttempts = currentFailedAttempts + 1
-          
-          // Помечаем как оффлайн только после 3 неудачных попыток подряд
-          const shouldMarkOffline = newFailedAttempts >= 3
-          
+          // В случае ошибки помечаем как offline
           updatedHosts.push({
             ...host,
             // Сохраняем пользовательские данные
             hostname: host.hostname, // Сохраняем пользовательское имя
             original_hostname: host.original_hostname, // Сохраняем оригинальное имя
-            // Обновляем статус в зависимости от количества неудачных попыток
-            status: shouldMarkOffline ? 'offline' : 'online',
-            device_status: shouldMarkOffline ? 'offline' : host.device_status,
+            // Помечаем как offline
+            status: 'offline',
+            device_status: 'offline',
             last_seen: new Date().toISOString(),
-            failed_attempts: newFailedAttempts,
-            // Сохраняем флаг сброса имени
-            _hostname_reset: host._hostname_reset || false
+            failed_attempts: (host.failed_attempts || 0) + 1
           })
         }
       }
@@ -829,11 +777,6 @@ export function NetworkScanner() {
   const getPrinterStatus = (host: HostInfo): string => {
     // First check if host is marked as offline
     if (host.status === 'offline') {
-      return 'offline'
-    }
-    
-    // Check if we have too many failed attempts (host is effectively offline)
-    if (host.failed_attempts && host.failed_attempts >= 3) {
       return 'offline'
     }
     
@@ -1173,20 +1116,6 @@ export function NetworkScanner() {
                                 Test Notification
                               </Button>
                               
-                              <Button 
-                                onClick={async () => {
-                                  try {
-                                    const result = await invokeTauri('check_notification_status_command')
-                                    alert(`Notification status: ${result}`)
-                                  } catch (error) {
-                                    alert(`Failed to check notification status: ${error}`)
-                                  }
-                                }}
-                                variant="outline"
-                                className="w-full"
-                              >
-                                Check Notification Status
-                              </Button>
                             </div>
                         </div>
                     </TabsContent>
@@ -1380,24 +1309,11 @@ export function NetworkScanner() {
                         </Button>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={host.hostname}
-                            onChange={(e) => handleEditHostname(host.id, e.target.value)}
-                            className="border-none bg-transparent p-0 h-auto focus-visible:ring-0 flex-1"
-                          />
-                          {host.hostname !== host.original_hostname && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleResetHostname(host.id)}
-                              className="h-6 w-6 p-0"
-                              title={t.resetHostname}
-                            >
-                              <RefreshCw className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
+                        <Input
+                          value={host.hostname}
+                          onChange={(e) => handleEditHostname(host.id, e.target.value)}
+                          className="border-none bg-transparent p-0 h-auto focus-visible:ring-0 flex-1"
+                        />
                       </TableCell>
                       <TableCell>
                         <Button

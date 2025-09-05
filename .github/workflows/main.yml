@@ -31,12 +31,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
-      - name: Install Rust target for macOS ARM
-        run: rustup target add aarch64-apple-darwin
+          targets: aarch64-apple-darwin
       - name: Install dependencies
         run: pnpm install
       - name: Build Next.js
@@ -77,12 +74,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
-      - name: Install Rust target for macOS x86
-        run: rustup target add x86_64-apple-darwin
+          targets: x86_64-apple-darwin
       - name: Install dependencies
         run: pnpm install
       - name: Build Next.js
@@ -123,12 +117,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
-      - name: Install Rust target for Windows x86
-        run: rustup target add x86_64-pc-windows-msvc
+          targets: x86_64-pc-windows-msvc
       - name: Install dependencies
         run: pnpm install
       - name: Build Next.js
@@ -169,12 +160,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
-      - name: Install Rust target for Windows ARM
-        run: rustup target add aarch64-pc-windows-msvc
+          targets: aarch64-pc-windows-msvc
       - name: Install dependencies
         run: pnpm install
       - name: Build Next.js
@@ -189,12 +177,113 @@ jobs:
           name: moonraker-host-scanner-windows-aarch64
           path: src-tauri/target/aarch64-pc-windows-msvc/release/bundle/
           retention-days: 30
+  build-linux-x86:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build Next.js
+        run: pnpm build
+      - name: Build Tauri application for Linux x86
+        run: pnpm tauri build --target x86_64-unknown-linux-gnu
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Linux x86 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-x86_64
+          path: src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/
+          retention-days: 30
+  build-linux-arm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+      - name: Install cross-compilation dependencies
+        run: |
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          rustup target add aarch64-unknown-linux-gnu
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build Next.js
+        run: pnpm build
+      - name: Build Tauri application for Linux ARM
+        run: pnpm tauri build --target aarch64-unknown-linux-gnu
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+          CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+          AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
+      - name: Upload Linux ARM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-aarch64
+          path: src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/
+          retention-days: 30
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
-    needs: [build-macos-arm, build-macos-x86, build-windows-x86, build-windows-arm]
+    needs: [build-macos-arm, build-macos-x86, build-windows-x86, build-windows-arm, build-linux-x86, build-linux-arm]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -218,6 +307,16 @@ jobs:
         with:
           name: moonraker-host-scanner-windows-aarch64
           path: ./artifacts/windows-aarch64
+      - name: Download Linux x86 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-x86_64
+          path: ./artifacts/linux-x86_64
+      - name: Download Linux ARM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-aarch64
+          path: ./artifacts/linux-aarch64
       - name: Debug artifacts structure
         run: |
           echo "Artifacts structure:"
@@ -225,9 +324,9 @@ jobs:
       - name: Collect artifacts
         id: collect_artifacts
         run: |
-          files=$(find ./artifacts -type f \( -name "*.dmg" -o -name "*.exe" \) | tr '\n' ',' | sed 's/,$//')
+          files=$(find ./artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) | tr '\n' ',' | sed 's/,$//')
           if [ -z "$files" ]; then
-            echo "❌ No .dmg or .exe files found!"
+            echo "❌ No .dmg, .exe, .AppImage, .deb or .rpm files found!"
             exit 1
           fi
           echo "files=$files" >> $GITHUB_OUTPUT
@@ -237,7 +336,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }} (macOS ARM + x86, Windows x86 + ARM)
+          name: Release ${{ github.ref_name }} (macOS ARM + x86, Windows x86 + ARM, Linux x86 + ARM)
           draft: false
           prerelease: false
           body: |
@@ -250,6 +349,10 @@ jobs:
             ### 🪟 Windows Builds
             - **Windows x86_64** (`.exe` for Intel/AMD PCs)
             - **Windows ARM64** (`.exe` for ARM-based Windows devices)
+
+            ### 🐧 Linux Builds
+            - **Linux x86_64** (`.AppImage`, `.deb`, `.rpm` for Intel/AMD PCs)
+            - **Linux ARM64** (`.AppImage`, `.deb`, `.rpm` for ARM-based devices)
 
             ### 📦 Installation
             #### macOS
@@ -264,6 +367,20 @@ jobs:
             1. Download the `.exe` file
             2. Run the installer and follow the instructions
             3. Launch Moonraker Host Scanner
+            #### Linux
+            1. **AppImage**: Download and make executable:
+               ```bash
+               chmod +x moonraker-host-scanner-*.AppImage
+               ./moonraker-host-scanner-*.AppImage
+               ```
+            2. **Debian/Ubuntu**: Install with:
+               ```bash
+               sudo dpkg -i moonraker-host-scanner-*.deb
+               ```
+            3. **Red Hat/Fedora**: Install with:
+               ```bash
+               sudo rpm -i moonraker-host-scanner-*.rpm
+               ```
 
             ### 🔧 Features
             - Network scanning for Moonraker printers
