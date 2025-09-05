@@ -4,7 +4,9 @@
   "version": "0.0.30",
   "identifier": "com.tormyhseviv.moonrakerhostscanner",
   "build": {
-    "frontendDist": "../out"
+    "frontendDist": "../out",
+    "beforeBuildCommand": "pnpm build",
+    "devPath": "http://localhost:3000"
   },
   "app": {
     "withGlobalTauri": true,
@@ -24,7 +26,11 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app", "nsis"],
+    "targets": {
+      "macOS": ["dmg", "app"],
+      "windows": ["nsis"],
+      "linux": ["deb", "rpm", "appimage"]
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

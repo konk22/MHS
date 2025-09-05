@@ -185,17 +185,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8
-
       - name: Setup pnpm cache
         uses: actions/cache@v3
         with:
@@ -205,7 +202,6 @@ jobs:
           key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
-
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -222,24 +218,19 @@ jobs:
             libatk1.0-dev \
             libgdk-pixbuf2.0-dev \
             libssl-dev
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-gnu
-
       - name: Install dependencies
         run: pnpm install
-
       - name: Build Next.js
         run: pnpm build
-
       - name: Build Tauri application for Linux x86
         run: pnpm tauri build --target x86_64-unknown-linux-gnu
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
-
       - name: Upload Linux x86 artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -248,29 +239,72 @@ jobs:
           retention-days: 30
   build-linux-arm:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - uses: actions/checkout@v4
-
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8
-
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libglib2.0-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libatk1.0-dev \
+            libgdk-pixbuf2.0-dev \
+            libssl-dev \
+            crossbuild-essential-arm64 \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-unknown-linux-gnu
-
-      - name: Build Linux ARM inside docker
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build Next.js
+        run: pnpm build
+      - name: Build Tauri application for Linux ARM
         run: |
-          docker run --rm -v $PWD:/work -w /work clux/muslrust:arm64-1.89.0-stable-2025-08-20 \
-            bash -c "rustup target add aarch64-unknown-linux-gnu && \
-                      cargo build --release --target aarch64-unknown-linux-gnu"
+          rustup target add aarch64-unknown-linux-gnu
+          pnpm tauri build --target aarch64-unknown-linux-gnu
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+          CC: aarch64-linux-gnu-gcc
+          CXX: aarch64-linux-gnu-g++
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+      - name: Upload Linux ARM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-aarch64
+          path: src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/
+          retention-days: 30
   release:
     runs-on: ubuntu-latest
     permissions:
