@@ -268,7 +268,7 @@ jobs:
 
       - name: Build Linux ARM inside docker
         run: |
-          docker run --rm -v $PWD:/work -w /work clux/muslrust:stable-arm64 \
+          docker run --rm -v $PWD:/work -w /work clux/muslrust:arm64-1.89.0-stable-2025-08-20 \
             bash -c "rustup target add aarch64-unknown-linux-gnu && \
                       cargo build --release --target aarch64-unknown-linux-gnu"
   release:
