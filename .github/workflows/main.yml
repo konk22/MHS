@@ -275,7 +275,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
-      - name: Install system dependencies (for Next.js build)
+      - name: Install system dependencies (для Next.js build)
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -306,7 +306,7 @@ jobs:
       - name: Build Next.js
         run: pnpm build
 
-      - name: Build Tauri application for Linux ARM (cross)
+      - name: Build Tauri (Linux ARM, cross)
         run: cross build --release --target aarch64-unknown-linux-gnu
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -317,8 +317,6 @@ jobs:
           name: moonraker-host-scanner-linux-aarch64
           path: target/aarch64-unknown-linux-gnu/release/
           retention-days: 30
-        
-
 
   release:
     runs-on: ubuntu-latest
