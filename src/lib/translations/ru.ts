@@ -69,7 +69,7 @@ export const ru = {
   checking: "Проверка",
 
   // About Tab
-  version: "Версия 0.0.30",
+  version: "Версия 0.0.31",
   powerfulNetworkTool: "Сетевой инструмент для поиска и управления 3D принтерами",
 
   // Language Tab
