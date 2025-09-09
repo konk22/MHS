@@ -36,5 +36,10 @@ export const tauriCommands = {
   openWebcam: (ip: string) => invokeTauri('open_webcam_command', { ip }),
   openHostInBrowser: (ip: string) => invokeTauri('open_host_in_browser_command', { ip }),
   openSSHConnection: (ip: string, user: string) => invokeTauri('open_ssh_connection_command', { ip, user }),
-  sendNotification: (title: string, body: string) => invokeTauri('send_system_notification_command', { title, body })
+  sendNotification: (title: string, body: string) => invokeTauri('send_system_notification_command', { title, body }),
+  
+  // Background monitoring
+  startBackgroundMonitoring: (intervalSeconds: number) => invokeTauri('start_background_monitoring_command', { intervalSeconds }),
+  stopBackgroundMonitoring: () => invokeTauri('stop_background_monitoring_command'),
+  getBackgroundMonitoringStatus: () => invokeTauri('get_background_monitoring_status_command')
 } as const

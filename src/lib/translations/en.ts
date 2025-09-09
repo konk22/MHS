@@ -116,4 +116,15 @@ export const en = {
   totalHeight: "Total Height",
   printStats: "Print Statistics",
   noPrintInfo: "No print information",
+  
+  // Background Mode
+  backgroundModeDescription: "Background operation with notifications",
+  enableBackgroundMode: "Enable Background Mode",
+  backgroundModeInterval: "Check Interval (seconds)",
+  backgroundModeStatus: "Background Mode Status",
+  backgroundModeRunning: "Running",
+  backgroundModeStopped: "Stopped",
+  startBackgroundMode: "Start Background Mode",
+  stopBackgroundMode: "Stop Background Mode",
+  backgroundModeHelp: "In background mode, the application will continue to monitor printers and send notifications even when the window is closed.",
 }

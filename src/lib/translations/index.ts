@@ -49,6 +49,7 @@ export interface Translations {
   configureNetworkScanning: string
   network: string
   notifications: string
+  backgroundMode: string
   about: string
   language: string
 
@@ -118,6 +119,18 @@ export interface Translations {
   currentHeight: string
   totalHeight: string
   printStats: string
+  noPrintInfo: string
+  
+  // Background Mode
+  backgroundModeDescription: string
+  enableBackgroundMode: string
+  backgroundModeInterval: string
+  backgroundModeStatus: string
+  backgroundModeRunning: string
+  backgroundModeStopped: string
+  startBackgroundMode: string
+  stopBackgroundMode: string
+  backgroundModeHelp: string
 }
 
 export const translations: Record<string, Translations> = {

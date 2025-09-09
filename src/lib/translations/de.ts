@@ -117,4 +117,15 @@ export const de = {
   totalHeight: "Gesamthöhe",
   printStats: "Druckstatistiken",
   noPrintInfo: "Keine Druckinformationen",
+  
+  // Background Mode
+  backgroundModeDescription: "Hintergrundbetrieb mit Benachrichtigungen",
+  enableBackgroundMode: "Hintergrundmodus aktivieren",
+  backgroundModeInterval: "Prüfintervall (Sekunden)",
+  backgroundModeStatus: "Hintergrundmodus-Status",
+  backgroundModeRunning: "Läuft",
+  backgroundModeStopped: "Gestoppt",
+  startBackgroundMode: "Hintergrundmodus starten",
+  stopBackgroundMode: "Hintergrundmodus stoppen",
+  backgroundModeHelp: "Im Hintergrundmodus überwacht die Anwendung weiterhin Drucker und sendet Benachrichtigungen, auch wenn das Fenster geschlossen ist.",
 }

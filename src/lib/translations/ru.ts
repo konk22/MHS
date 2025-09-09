@@ -45,6 +45,7 @@ export const ru = {
   configureNetworkScanning: "Настройка сканирования сети и предпочтений",
   network: "Сеть",
   notifications: "Уведомления",
+  backgroundMode: "Фоновый Режим",
   about: "О программе",
   language: "Язык",
 
@@ -117,4 +118,15 @@ export const ru = {
   totalHeight: "Общая высота",
   printStats: "Статистика печати",
   noPrintInfo: "Нет информации о печати",
+  
+  // Background Mode
+  backgroundModeDescription: "Работа в фоновом режиме с уведомлениями",
+  enableBackgroundMode: "Включить фоновый режим",
+  backgroundModeInterval: "Интервал проверки (секунды)",
+  backgroundModeStatus: "Статус фонового режима",
+  backgroundModeRunning: "Работает",
+  backgroundModeStopped: "Остановлен",
+  startBackgroundMode: "Запустить фоновый режим",
+  stopBackgroundMode: "Остановить фоновый режим",
+  backgroundModeHelp: "В фоновом режиме приложение будет продолжать мониторить принтеры и отправлять уведомления даже при закрытом окне.",
 }
