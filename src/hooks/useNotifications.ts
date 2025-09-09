@@ -41,12 +41,12 @@ export function useNotifications() {
     
     const flags = host.printer_flags
     
-    // Priority order: error > cancelling > paused > printing > ready > standby
-    if (flags.error) {
-      return 'error'
-    }
+    // Priority order: cancelling > error > paused > printing > ready > standby
     if (flags.cancelling) {
       return 'cancelling'
+    }
+    if (flags.error) {
+      return 'error'
     }
     if (flags.paused) {
       return 'paused'

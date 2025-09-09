@@ -102,12 +102,12 @@ pub struct PrinterFlags {
 impl PrinterFlags {
     /// Determines the printer status based on flags priority
     /// 
-    /// Priority order: error > cancelling > paused > printing > ready > standby
+    /// Priority order: cancelling > error > paused > printing > ready > standby
     pub fn get_status(&self) -> &'static str {
-        if self.error {
-            "error"
-        } else if self.cancelling {
+        if self.cancelling {
             "cancelling"
+        } else if self.error {
+            "error"
         } else if self.paused {
             "paused"
         } else if self.printing {

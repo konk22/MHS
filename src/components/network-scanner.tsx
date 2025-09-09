@@ -770,7 +770,7 @@ export function NetworkScanner() {
 
   /**
    * Determines printer status based on Moonraker API flags
-   * Priority order: offline > error > cancelling > paused > printing > ready > standby
+   * Priority order: offline > cancelling > error > paused > printing > ready > standby
    * @param host - Host information containing printer flags
    * @returns Status string for display
    */
@@ -799,12 +799,12 @@ export function NetworkScanner() {
     
     const flags = host.printer_flags
     
-    // Priority order: error > cancelling > paused > printing > ready > standby
-    if (flags.error) {
-      return 'error'
-    }
+    // Priority order: cancelling > error > paused > printing > ready > standby
     if (flags.cancelling) {
       return 'cancelling'
+    }
+    if (flags.error) {
+      return 'error'
     }
     if (flags.paused) {
       return 'paused'
