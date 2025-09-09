@@ -1,6 +1,6 @@
 [package]
 name = "moonrakerhostscanner"
-version = "0.0.43"
+version = "0.0.44"
 description = "A Tauri App for scanning Moonraker hosts"
 authors = ["you"]
 edition = "2021"
