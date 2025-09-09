@@ -478,22 +478,38 @@ export function NetworkScanner() {
             const newHosts: HostInfo[] = []
             let newHostIndex = 0
             
-            // Обрабатываем каждый хост из результата сканирования
-            result.hosts.forEach((newHost: any) => {
-              const existingHost = sortedPrevHosts.find(h => h.ip_address === newHost.ip_address)
+            // Сначала обрабатываем все существующие хосты
+            sortedPrevHosts.forEach(existingHost => {
+              const foundHost = result.hosts.find((newHost: any) => newHost.ip_address === existingHost.ip_address)
               
-              if (existingHost) {
-                // Если хост уже существует, сохраняем его порядок и пользовательские данные
+              if (foundHost) {
+                // Хост найден при сканировании - обновляем его данные
                 updatedHosts.push({
-                  ...newHost,
-                  original_hostname: newHost.hostname,
+                  ...foundHost,
+                  original_hostname: foundHost.hostname,
                   hostname: (existingHost.hostname !== existingHost.original_hostname)
                     ? existingHost.hostname // Сохраняем пользовательское имя, если оно было изменено
-                    : newHost.hostname, // Используем новое имя с сервера, если пользователь не изменял
-                  failed_attempts: existingHost.failed_attempts || 0,
+                    : foundHost.hostname, // Используем новое имя с сервера, если пользователь не изменял
+                  failed_attempts: 0, // Сбрасываем счетчик неудачных попыток
                   order: existingHost.order || 0
                 })
               } else {
+                // Хост не найден при сканировании - сохраняем его как есть, но помечаем как offline
+                updatedHosts.push({
+                  ...existingHost,
+                  status: 'offline',
+                  device_status: 'offline',
+                  last_seen: new Date().toISOString(),
+                  failed_attempts: (existingHost.failed_attempts || 0) + 1
+                })
+              }
+            })
+            
+            // Затем добавляем новые хосты, которых не было в списке
+            result.hosts.forEach((newHost: any) => {
+              const existingHost = sortedPrevHosts.find(h => h.ip_address === newHost.ip_address)
+              
+              if (!existingHost) {
                 // Новый хост - добавляем в конец
                 newHosts.push({
                   ...newHost,
