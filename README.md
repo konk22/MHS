@@ -6,16 +6,21 @@ Desktop application for discovering, monitoring, and controlling 3D printers on 
 
 - **Network Discovery** - Scan and discover 3D printer hosts
 - **Real-time Monitoring** - Status updates with configurable intervals
-- **Device Control** - Start, pause, stop, and emergency stop functions
+- **Device Control** - Start, pause, resume, stop, and emergency stop functions
 - **SSH Integration** - Terminal access to hosts
 - **Browser Integration** - Access to web interfaces
 - **Webcam Support** - Stream printer webcams with rotation and flip controls
 - **Notifications** - Configurable system notifications for status changes
+- **Background Mode** - Continue monitoring and notifications when window is closed
+- **System Tray** - Minimize to system tray with full functionality
 - **Multi-language** - English, Russian, and German support
 - **Theme Support** - Light, dark, and system themes
 - **Auto-updates** - Update checking and GitHub integration
 - **Print Progress** - Print job monitoring and statistics
 - **Optimized Scanning** - Fast network scanning with configurable concurrency
+- **Host Persistence** - Known hosts are preserved across scans even when offline
+- **Custom Hostnames** - Edit and customize host display names
+- **Manual Host Sorting** - Drag and drop to reorder hosts
 
 ## Screenshots
 
@@ -96,23 +101,28 @@ The application is not signed with an Apple Developer certificate. Remove from q
 ### Device Control
 - **Start printing** from prepared files
 - **Pause/resume** active prints
-- **Stop printing** safely
+- **Cancel printing** safely
 - **Emergency stop** for critical situations
 - **Status monitoring** with real-time feedback
+- **Resume button** appears when printer is paused
 
 ### System Integration
 - **SSH terminal** access with configurable username
 - **Web browser** integration for web interfaces
 - **Webcam streaming** with refresh and controls
 - **System notifications** for status changes
+- **Background monitoring** with system tray integration
 - **Update checking** with GitHub integration
 
 ### Advanced Features
 - **Multi-language support** (EN/RU/DE)
 - **Theme switching** (Light/Dark/System)
-- **Auto-refresh** with configurable intervals
-- **Hostname management** with reset functionality
+- **Manual scanning** - No auto-refresh, only manual network scans
+- **Hostname management** with custom naming
 - **Notification preferences** per status type
+- **Background mode** with configurable monitoring intervals
+- **System tray** with show/hide/quit options
+- **Host persistence** - Offline hosts remain in the list
 
 ## Development
 
@@ -126,6 +136,8 @@ The application is not signed with an Apple Developer certificate. Remove from q
 - **Modular Rust backend** with separate modules for different functionality
 - **React frontend** with custom hooks for state management
 - **Tauri commands** for native system integration
+- **Background monitoring** with system tray integration
+- **Cross-platform compatibility** (Windows, macOS, Linux)
 - **Local storage** for settings and host persistence
 
 ### Development Commands
