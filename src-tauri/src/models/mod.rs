@@ -8,9 +8,11 @@ pub mod host;
 pub mod config;
 pub mod scan_progress;
 pub mod print_info;
+pub mod telegram;
 
 pub use api::*;
 pub use host::*;
 pub use config::*;
 pub use scan_progress::*;
 pub use print_info::*;
+pub use telegram::*;

@@ -3,15 +3,17 @@
 declare global {
   interface Window {
     __TAURI__: {
-      invoke: (command: string, args?: any) => Promise<any>
+      core: {
+        invoke: (command: string, args?: any) => Promise<any>
+      }
     }
   }
 }
 
 export const invokeTauri = async (command: string, args?: any): Promise<any> => {
-  if (typeof window !== 'undefined' && window.__TAURI__) {
+  if (typeof window !== 'undefined' && window.__TAURI__?.core) {
     try {
-      return await window.__TAURI__.invoke(command, args)
+      return await window.__TAURI__.core.invoke(command, args)
     } catch (error) {
       console.error(`Tauri command failed: ${command}`, error)
       throw error
@@ -41,5 +43,15 @@ export const tauriCommands = {
   // Background monitoring
   startBackgroundMonitoring: (intervalSeconds: number) => invokeTauri('start_background_monitoring_command', { intervalSeconds }),
   stopBackgroundMonitoring: () => invokeTauri('stop_background_monitoring_command'),
-  getBackgroundMonitoringStatus: () => invokeTauri('get_background_monitoring_status_command')
+  getBackgroundMonitoringStatus: () => invokeTauri('get_background_monitoring_status_command'),
+  
+  // Telegram bot
+  startTelegramBot: (botToken: string) => invokeTauri('start_telegram_bot', { botToken }),
+  stopTelegramBot: () => invokeTauri('stop_telegram_bot'),
+  getTelegramBotStatus: () => invokeTauri('get_telegram_bot_status'),
+  startTelegramRegistration: () => invokeTauri('start_telegram_registration'),
+  stopTelegramRegistration: () => invokeTauri('stop_telegram_registration'),
+  isTelegramRegistrationActive: () => invokeTauri('is_telegram_registration_active'),
+  getTelegramUsers: () => invokeTauri('get_telegram_users'),
+  removeTelegramUser: (userId: number) => invokeTauri('remove_telegram_user', { userId })
 } as const

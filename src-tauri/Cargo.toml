@@ -33,3 +33,6 @@ url = "2.4"
 chrono = { version = "0.4", features = ["serde"] }
 tokio-util = "0.7"
 notify-rust = "4.8"
+teloxide = { version = "0.12", features = ["macros"] }
+log = "0.4"
+dirs = "5.0"

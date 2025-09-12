@@ -32,6 +32,7 @@ pub mod commands;
 pub mod notifications;
 pub mod updater;
 pub mod background_monitor;
+pub mod telegram;
 
 // Re-export commonly used types
 pub use error::{MoonrakerError, MoonrakerResult};
@@ -69,6 +70,7 @@ pub fn run() {
             }
         })
         .manage(background_monitor::BackgroundMonitorState::new())
+        .manage(commands::telegram::TelegramBotState::new())
         .setup(|app| {
             // Create system tray with menu
             use tauri::{
@@ -194,6 +196,16 @@ pub fn run() {
             commands::background::start_background_monitoring_command,
             commands::background::stop_background_monitoring_command,
             commands::background::get_background_monitoring_status_command,
+            
+            // Telegram bot commands
+            commands::telegram::start_telegram_bot,
+            commands::telegram::stop_telegram_bot,
+            commands::telegram::get_telegram_bot_status,
+            commands::telegram::start_telegram_registration,
+            commands::telegram::stop_telegram_registration,
+            commands::telegram::is_telegram_registration_active,
+            commands::telegram::get_telegram_users,
+            commands::telegram::remove_telegram_user,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

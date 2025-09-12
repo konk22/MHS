@@ -63,6 +63,7 @@ import {
 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n"
 import { useUpdater } from "@/hooks/use-updater"
+import { useTelegramBot } from "@/hooks/useTelegramBot"
 
 /**
  * Network subnet configuration for scanning
@@ -151,6 +152,10 @@ interface AppSettings {
     standby: boolean
     offline: boolean
   }
+  telegram: {
+    enabled: boolean
+    botToken: string
+  }
   theme: "light" | "dark" | "system"
   language: string
 }
@@ -180,6 +185,10 @@ export function NetworkScanner() {
       standby: false,
       offline: true,
     },
+    telegram: {
+      enabled: false,
+      botToken: "",
+    },
     theme: "system",
     language: "en", // Added default language
   })
@@ -202,6 +211,18 @@ export function NetworkScanner() {
 
   const t = useTranslation(settings.language)
   const { updateInfo, repositoryInfo, isChecking, checkForUpdates, openRepository, openReleases } = useUpdater()
+  const { 
+    status: telegramStatus, 
+    users: telegramUsers, 
+    registrationCode, 
+    registrationTimeLeft,
+    startBot, 
+    stopBot, 
+    startRegistration, 
+    stopRegistration,
+    removeUser, 
+    loadUsers 
+  } = useTelegramBot(settings.telegram.botToken, settings.telegram.enabled)
 
   // Tauri API functions
   const invokeTauri = async (command: string, args?: any) => {
@@ -979,17 +1000,18 @@ export function NetworkScanner() {
                   {t.settings}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl h-[600px] flex flex-col">
+              <DialogContent className="max-w-4xl h-[600px] flex flex-col">
                 <DialogHeader className="flex-shrink-0">
                   <DialogTitle>{t.applicationSettings}</DialogTitle>
                   <DialogDescription>{t.configureNetworkScanning}</DialogDescription>
                 </DialogHeader>
 
                 <Tabs defaultValue="network" className="flex-1 flex flex-col overflow-hidden">
-                  <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
+                  <TabsList className="flex w-full flex-shrink-0 justify-between">
                     <TabsTrigger value="network">{t.network}</TabsTrigger>
                     <TabsTrigger value="ssh">SSH</TabsTrigger>
                     <TabsTrigger value="notifications">{t.notifications}</TabsTrigger>
+                    <TabsTrigger value="telegram">Telegram</TabsTrigger>
                     <TabsTrigger value="language">{t.language}</TabsTrigger>
                     <TabsTrigger value="about">{t.about}</TabsTrigger>
                   </TabsList>
@@ -1152,6 +1174,159 @@ export function NetworkScanner() {
                             <SelectItem value="de">Deutsch</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="telegram" className="space-y-4 mt-4">
+                      <div>
+                        <Label>Telegram Bot Integration</Label>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Configure Telegram bot for user registration. Only registered users can interact with the bot.
+                        </p>
+                        <div className="mt-4 space-y-4">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="telegram-enabled" 
+                              checked={settings.telegram.enabled}
+                              onCheckedChange={(checked) => 
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  telegram: {
+                                    ...prev.telegram,
+                                    enabled: checked as boolean
+                                  }
+                                }))
+                              }
+                            />
+                            <Label htmlFor="telegram-enabled">Enable Telegram Bot</Label>
+                            {telegramStatus.isLoading && (
+                              <span className="text-sm text-muted-foreground">Loading...</span>
+                            )}
+                            {telegramStatus.isRunning && (
+                              <span className="text-sm text-green-600">✓ Bot is running</span>
+                            )}
+                            {telegramStatus.error && (
+                              <span className="text-sm text-red-600">✗ {telegramStatus.error}</span>
+                            )}
+                          </div>
+                          
+                          {settings.telegram.enabled && (
+                            <div>
+                              <Label htmlFor="telegram-bot-token">Bot Token</Label>
+                              <Input
+                                id="telegram-bot-token"
+                                placeholder="Enter your Telegram bot token"
+                                value={settings.telegram.botToken}
+                                onChange={(e) => 
+                                  setSettings((prev) => ({
+                                    ...prev,
+                                    telegram: {
+                                      ...prev.telegram,
+                                      botToken: e.target.value
+                                    }
+                                  }))
+                                }
+                                className="mt-2"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Get your bot token from @BotFather on Telegram
+                              </p>
+                            </div>
+                          )}
+                          
+                          {settings.telegram.enabled && settings.telegram.botToken && telegramStatus.isRunning && (
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Button 
+                                    onClick={startRegistration}
+                                    disabled={telegramStatus.isLoading || !!registrationCode}
+                                    size="sm"
+                                  >
+                                    {registrationCode ? "Registration Active" : "Start Registration"}
+                                  </Button>
+                                  {registrationCode && (
+                                    <Button 
+                                      onClick={stopRegistration}
+                                      variant="destructive"
+                                      size="sm"
+                                    >
+                                      Stop Registration
+                                    </Button>
+                                  )}
+                                </div>
+                                {registrationCode && (
+                                  <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <h4 className="font-medium text-blue-900 dark:text-blue-100">Registration Active</h4>
+                                      {registrationTimeLeft && (
+                                        <span className="text-sm text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+                                          {registrationTimeLeft}s
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="space-y-2">
+                                      <div className="text-sm text-blue-800 dark:text-blue-200">
+                                        Tell users to send this code to the bot:
+                                      </div>
+                                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 font-mono bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-300 dark:border-gray-600 text-center">
+                                        {registrationCode}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label>Registered Users ({telegramUsers.length})</Label>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={loadUsers}
+                                disabled={!telegramStatus.isRunning}
+                              >
+                                Refresh
+                              </Button>
+                            </div>
+                            {telegramUsers.length > 0 && (
+                              <div className="space-y-2 max-h-40 overflow-y-auto">
+                                {telegramUsers.map((user) => (
+                                  <div key={user.user_id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <div className="flex-1">
+                                      <div className="flex items-center space-x-2">
+                                        <span className="font-medium text-gray-900 dark:text-gray-100">
+                                          {user.username ? `@${user.username}` : 
+                                           user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() :
+                                           `User ${user.user_id}`}
+                                        </span>
+                                        {user.username && user.first_name && (
+                                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                                            ({user.first_name} {user.last_name || ''})
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        ID: {user.user_id} • Registered: {new Date(user.registered_at).toLocaleDateString()}
+                                      </div>
+                                    </div>
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={() => removeUser(user.user_id)}
+                                      className="ml-2"
+                                    >
+                                      Remove
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          
+                        </div>
                       </div>
                     </TabsContent>
 
