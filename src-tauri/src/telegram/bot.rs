@@ -11,6 +11,10 @@ use serde_json;
 enum Command {
     #[command(description = "Get list of available hosts")]
     Hosts,
+    #[command(description = "Enable notifications")]
+    NotificationOn,
+    #[command(description = "Disable notifications")]
+    NotificationOff,
 }
 
 #[derive(Clone)]
@@ -344,6 +348,54 @@ async fn message_handler(
                                     bot.send_message(msg.chat.id, format!("Error getting hosts: {}", e))
                                         .await?;
                                 }
+                            }
+                        } else {
+                            // Ignore unregistered users
+                            return Ok(());
+                        }
+                    }
+                    Command::NotificationOn => {
+                        if is_registered {
+                            let mut users = registered_users.lock().await;
+                            if let Some(user) = users.iter_mut().find(|u| u.user_id == user_id.0 as i64) {
+                                user.notifications_enabled = true;
+                                drop(users); // Release the lock before calling save
+                                
+                                // Save users to file
+                                let users_to_save = registered_users.lock().await.clone();
+                                if let Err(e) = save_users_to_file(&users_to_save).await {
+                                    println!("Failed to save users to file: {}", e);
+                                }
+                                
+                                bot.send_message(msg.chat.id, "✅ Notifications enabled! You will now receive status change notifications.")
+                                    .await?;
+                            } else {
+                                bot.send_message(msg.chat.id, "❌ User not found. Please register first.")
+                                    .await?;
+                            }
+                        } else {
+                            // Ignore unregistered users
+                            return Ok(());
+                        }
+                    }
+                    Command::NotificationOff => {
+                        if is_registered {
+                            let mut users = registered_users.lock().await;
+                            if let Some(user) = users.iter_mut().find(|u| u.user_id == user_id.0 as i64) {
+                                user.notifications_enabled = false;
+                                drop(users); // Release the lock before calling save
+                                
+                                // Save users to file
+                                let users_to_save = registered_users.lock().await.clone();
+                                if let Err(e) = save_users_to_file(&users_to_save).await {
+                                    println!("Failed to save users to file: {}", e);
+                                }
+                                
+                                bot.send_message(msg.chat.id, "🔕 Notifications disabled! You will no longer receive status change notifications.")
+                                    .await?;
+                            } else {
+                                bot.send_message(msg.chat.id, "❌ User not found. Please register first.")
+                                    .await?;
                             }
                         } else {
                             // Ignore unregistered users
