@@ -53,5 +53,9 @@ export const tauriCommands = {
   stopTelegramRegistration: () => invokeTauri('stop_telegram_registration'),
   isTelegramRegistrationActive: () => invokeTauri('is_telegram_registration_active'),
   getTelegramUsers: () => invokeTauri('get_telegram_users'),
-  removeTelegramUser: (userId: number) => invokeTauri('remove_telegram_user', { userId })
+  removeTelegramUser: (userId: number) => invokeTauri('remove_telegram_user', { userId }),
+  getTelegramHosts: () => invokeTauri('get_telegram_hosts'),
+  updateTelegramHosts: (hosts: any[]) => invokeTauri('update_telegram_hosts', { hosts }),
+  sendTelegramNotification: (title: string, body: string) => invokeTauri('send_telegram_notification', { title, body }),
+  updateTelegramUserNotifications: (userId: number, notificationsEnabled: boolean) => invokeTauri('update_telegram_user_notifications', { userId, notificationsEnabled })
 } as const

@@ -206,6 +206,10 @@ pub fn run() {
             commands::telegram::is_telegram_registration_active,
             commands::telegram::get_telegram_users,
             commands::telegram::remove_telegram_user,
+            commands::telegram::get_telegram_hosts,
+            commands::telegram::update_telegram_hosts,
+            commands::telegram::send_telegram_notification,
+            commands::telegram::update_telegram_user_notifications,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

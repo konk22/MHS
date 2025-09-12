@@ -6,12 +6,14 @@ use crate::models::TelegramUser;
 
 pub struct TelegramBotState {
     pub bot: Arc<Mutex<Option<TelegramBot>>>,
+    pub hosts: Arc<Mutex<Vec<crate::models::HostInfo>>>,
 }
 
 impl TelegramBotState {
     pub fn new() -> Self {
         Self {
             bot: Arc::new(Mutex::new(None)),
+            hosts: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -31,7 +33,7 @@ pub async fn start_telegram_bot(
     }
     
     // Create and start new bot
-    let bot = TelegramBot::new(bot_token).await?;
+    let bot = TelegramBot::new(bot_token, state.hosts.clone()).await?;
     bot.start().await?;
     
     *bot_guard = Some(bot);
@@ -130,6 +132,55 @@ pub async fn is_telegram_registration_active(
     
     if let Some(ref bot) = *bot_guard {
         Ok(bot.is_registration_active().await)
+    } else {
+        Err("Bot is not running".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn get_telegram_hosts(
+    state: State<'_, TelegramBotState>,
+) -> Result<Vec<crate::models::HostInfo>, String> {
+    let hosts = state.hosts.lock().await;
+    Ok(hosts.clone())
+}
+
+#[tauri::command]
+pub async fn update_telegram_hosts(
+    hosts: Vec<crate::models::HostInfo>,
+    state: State<'_, TelegramBotState>,
+) -> Result<(), String> {
+    let mut state_hosts = state.hosts.lock().await;
+    *state_hosts = hosts;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn send_telegram_notification(
+    title: String,
+    body: String,
+    state: State<'_, TelegramBotState>,
+) -> Result<(), String> {
+    let bot_guard = state.bot.lock().await;
+    
+    if let Some(ref bot) = *bot_guard {
+        bot.send_notification_to_all_users(&title, &body).await?;
+        Ok(())
+    } else {
+        Err("Bot is not running".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn update_telegram_user_notifications(
+    user_id: i64,
+    notifications_enabled: bool,
+    state: State<'_, TelegramBotState>,
+) -> Result<(), String> {
+    let bot_guard = state.bot.lock().await;
+    
+    if let Some(ref bot) = *bot_guard {
+        bot.update_user_notifications(user_id, notifications_enabled).await
     } else {
         Err("Bot is not running".to_string())
     }

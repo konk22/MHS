@@ -9,8 +9,8 @@ use serde_json;
 #[derive(BotCommands, Clone)]
 #[command(rename_rule = "lowercase", description = "MHS Bot commands:")]
 enum Command {
-    #[command(description = "Get your user ID")]
-    MyId,
+    #[command(description = "Get list of available hosts")]
+    Hosts,
 }
 
 #[derive(Clone)]
@@ -20,16 +20,18 @@ pub struct TelegramBot {
     task_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
     registered_users: Arc<Mutex<Vec<TelegramUser>>>,
     registration_state: Arc<Mutex<RegistrationState>>,
+    hosts: Arc<Mutex<Vec<crate::models::HostInfo>>>,
 }
 
 impl TelegramBot {
-    pub async fn new(bot_token: String) -> Result<Self, String> {
+    pub async fn new(bot_token: String, hosts: Arc<Mutex<Vec<crate::models::HostInfo>>>) -> Result<Self, String> {
         let bot = Self {
             bot: Bot::new(bot_token),
             is_running: Arc::new(AtomicBool::new(false)),
             task_handle: Arc::new(Mutex::new(None)),
             registered_users: Arc::new(Mutex::new(Vec::new())),
             registration_state: Arc::new(Mutex::new(RegistrationState::new())),
+            hosts,
         };
         
         // Load users from file
@@ -49,15 +51,34 @@ impl TelegramBot {
 
         let registered_users = self.registered_users.clone();
         let registration_state = self.registration_state.clone();
+        let hosts = self.hosts.clone();
         
         let handle = tokio::spawn(async move {
             is_running.store(true, Ordering::Relaxed);
+            
+            // Test bot token by getting bot info first
+            match bot.get_me().await {
+                Ok(bot_info) => {
+                    println!("Bot started successfully: @{}", bot_info.username());
+                    
+                    // Set bot commands menu only if bot is valid
+                    if let Err(e) = bot.set_my_commands(Command::bot_commands()).await {
+                        println!("Failed to set bot commands: {}", e);
+                    }
+                }
+                Err(e) => {
+                    println!("Failed to start bot - invalid token: {}", e);
+                    is_running.store(false, Ordering::Relaxed);
+                    return;
+                }
+            }
             
             let handler = dptree::entry()
                 .branch(Update::filter_message().endpoint(move |bot, msg| {
                     let users = registered_users.clone();
                     let reg_state = registration_state.clone();
-                    message_handler(bot, msg, users, reg_state)
+                    let hosts = hosts.clone();
+                    message_handler(bot, msg, users, reg_state, hosts)
                 }))
                 .branch(Update::filter_callback_query().endpoint(callback_handler));
 
@@ -186,6 +207,62 @@ impl TelegramBot {
         let users = self.registered_users.lock().await;
         users.iter().any(|user| user.user_id == user_id.0 as i64)
     }
+
+    pub async fn get_hosts(&self) -> Result<Vec<crate::models::HostInfo>, String> {
+        let hosts = self.hosts.lock().await;
+        Ok(hosts.clone())
+    }
+
+    pub async fn send_notification_to_all_users(&self, title: &str, body: &str) -> Result<(), String> {
+        let users = self.registered_users.lock().await;
+        
+        if users.is_empty() {
+            return Ok(()); // No users to notify
+        }
+
+        // Escape special characters for MarkdownV2
+        let escaped_title = title.replace("*", "\\*").replace("_", "\\_").replace("[", "\\[").replace("]", "\\]").replace("(", "\\(").replace(")", "\\)").replace("~", "\\~").replace("`", "\\`").replace(">", "\\>").replace("#", "\\#").replace("+", "\\+").replace("-", "\\-").replace("=", "\\=").replace("|", "\\|").replace("{", "\\{").replace("}", "\\}").replace(".", "\\.").replace("!", "\\!");
+        let escaped_body = body.replace("*", "\\*").replace("_", "\\_").replace("[", "\\[").replace("]", "\\]").replace("(", "\\(").replace(")", "\\)").replace("~", "\\~").replace("`", "\\`").replace(">", "\\>").replace("#", "\\#").replace("+", "\\+").replace("-", "\\-").replace("=", "\\=").replace("|", "\\|").replace("{", "\\{").replace("}", "\\}").replace(".", "\\.").replace("!", "\\!");
+        
+        let message = format!("🔔 *{}*\n\n{}", escaped_title, escaped_body);
+        
+        for user in users.iter() {
+            // Only send notification if user has notifications enabled
+            if !user.notifications_enabled {
+                continue;
+            }
+            
+            if let Err(e) = self.bot.send_message(teloxide::types::ChatId(user.user_id), &message)
+                .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                .await 
+            {
+                eprintln!("Failed to send notification to user {}: {}", user.user_id, e);
+            }
+        }
+        
+        Ok(())
+    }
+
+    pub async fn update_user_notifications(&self, user_id: i64, notifications_enabled: bool) -> Result<(), String> {
+        let mut users = self.registered_users.lock().await;
+        
+        if let Some(user) = users.iter_mut().find(|u| u.user_id == user_id) {
+            user.notifications_enabled = notifications_enabled;
+            drop(users); // Release the lock before calling save
+            
+            // Save users to file
+            self.save_users_to_file().await?;
+            Ok(())
+        } else {
+            Err(format!("User {} not found", user_id))
+        }
+    }
+}
+
+// Function to get hosts from the main application
+async fn get_hosts_from_app(hosts: Arc<Mutex<Vec<crate::models::HostInfo>>>) -> Result<Vec<crate::models::HostInfo>, String> {
+    let hosts_guard = hosts.lock().await;
+    Ok(hosts_guard.clone())
 }
 
 // Standalone function to save users to file
@@ -213,7 +290,8 @@ async fn message_handler(
     bot: Bot, 
     msg: Message, 
     registered_users: Arc<Mutex<Vec<TelegramUser>>>,
-    registration_state: Arc<Mutex<RegistrationState>>
+    registration_state: Arc<Mutex<RegistrationState>>,
+    hosts: Arc<Mutex<Vec<crate::models::HostInfo>>>
 ) -> ResponseResult<()> {
     let user_id = msg.from().unwrap().id;
     let is_registered = {
@@ -226,10 +304,47 @@ async fn message_handler(
         if text.starts_with('/') {
             if let Ok(command) = Command::parse(text, "") {
                 match command {
-                    Command::MyId => {
+                    Command::Hosts => {
                         if is_registered {
-                            bot.send_message(msg.chat.id, format!("Your User ID: {}", user_id))
-                                .await?;
+                            // Get hosts from the main application
+                            match get_hosts_from_app(hosts.clone()).await {
+                                Ok(hosts) => {
+                                    if hosts.is_empty() {
+                                        bot.send_message(msg.chat.id, "No hosts found. Make sure the application is running and has scanned for hosts.")
+                                            .await?;
+                                    } else {
+                                        let mut message = String::from("📡 Available Hosts:\n\n");
+                                        for (i, host) in hosts.iter().enumerate() {
+                                            let status_emoji = match host.status.as_str() {
+                                                "online" => "🟢",
+                                                "offline" => "🔴",
+                                                "printing" => "🟡",
+                                                "paused" => "⏸️",
+                                                "error" => "❌",
+                                                "cancelling" => "⏹️",
+                                                _ => "⚪"
+                                            };
+                                            
+                                            message.push_str(&format!(
+                                                "{}. {} {}\n   IP: {}\n   Status: {}\n   Device: {}\n\n",
+                                                i + 1,
+                                                status_emoji,
+                                                host.hostname,
+                                                host.ip_address,
+                                                host.status,
+                                                host.device_status
+                                            ));
+                                        }
+                                        
+                                        bot.send_message(msg.chat.id, message)
+                                            .await?;
+                                    }
+                                }
+                                Err(e) => {
+                                    bot.send_message(msg.chat.id, format!("Error getting hosts: {}", e))
+                                        .await?;
+                                }
+                            }
                         } else {
                             // Ignore unregistered users
                             return Ok(());

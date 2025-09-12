@@ -7,6 +7,7 @@ export interface TelegramUser {
   first_name?: string
   last_name?: string
   registered_at: string
+  notifications_enabled: boolean
 }
 
 export interface TelegramBotStatus {
@@ -80,6 +81,7 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
       setRegistrationTimeLeft(60) // 60 seconds
       setStatus(prev => ({ ...prev, isLoading: false, error: null }))
     } catch (error) {
+      console.error('Failed to start registration:', error);
       setStatus(prev => ({ 
         ...prev, 
         error: error instanceof Error ? error.message : 'Failed to start registration',
@@ -103,14 +105,48 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
 
   const removeUser = useCallback(async (userId: number) => {
     try {
+      // Update local state immediately for better UX
+      setUsers(prevUsers => 
+        prevUsers.filter(user => user.user_id !== userId)
+      );
+      
       await tauriCommands.removeTelegramUser(userId)
+      
+      // Also reload from backend to ensure consistency
       const updatedUsers = await tauriCommands.getTelegramUsers()
       setUsers(updatedUsers)
       saveUsersToLocalStorage(updatedUsers)
     } catch (error) {
+      console.error('Failed to remove user:', error);
       setStatus(prev => ({ 
         ...prev, 
         error: error instanceof Error ? error.message : 'Failed to remove user'
+      }))
+    }
+  }, [saveUsersToLocalStorage])
+
+  const updateUserNotifications = useCallback(async (userId: number, notificationsEnabled: boolean) => {
+    try {
+      // Update local state immediately for better UX
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.user_id === userId 
+            ? { ...user, notifications_enabled: notificationsEnabled }
+            : user
+        )
+      );
+      
+      await tauriCommands.updateTelegramUserNotifications(userId, notificationsEnabled)
+      
+      // Also reload from backend to ensure consistency
+      const updatedUsers = await tauriCommands.getTelegramUsers()
+      setUsers(updatedUsers)
+      saveUsersToLocalStorage(updatedUsers)
+    } catch (error) {
+      console.error('Failed to update user notifications:', error);
+      setStatus(prev => ({ 
+        ...prev, 
+        error: error instanceof Error ? error.message : 'Failed to update user notifications'
       }))
     }
   }, [saveUsersToLocalStorage])
@@ -188,6 +224,15 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
     }
   }, [status.isRunning, loadUsers, registrationCode, saveUsersToLocalStorage])
 
+  // Function to sync hosts with Telegram bot
+  const syncHostsWithBot = useCallback(async (hosts: any[]) => {
+    try {
+      await tauriCommands.updateTelegramHosts(hosts)
+    } catch (error) {
+      console.error('Failed to sync hosts with Telegram bot:', error)
+    }
+  }, [])
+
   // Registration timer
   useEffect(() => {
     if (registrationTimeLeft && registrationTimeLeft > 0) {
@@ -234,5 +279,7 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
     stopRegistration,
     removeUser,
     loadUsers,
+    syncHostsWithBot,
+    updateUserNotifications,
   }
 }

@@ -155,6 +155,14 @@ interface AppSettings {
   telegram: {
     enabled: boolean
     botToken: string
+    notifications: {
+      printing: boolean
+      paused: boolean
+      cancelling: boolean
+      error: boolean
+      standby: boolean
+      offline: boolean
+    }
   }
   theme: "light" | "dark" | "system"
   language: string
@@ -188,6 +196,14 @@ export function NetworkScanner() {
     telegram: {
       enabled: false,
       botToken: "",
+      notifications: {
+        printing: true,
+        paused: true,
+        cancelling: true,
+        error: true,
+        standby: false,
+        offline: true,
+      },
     },
     theme: "system",
     language: "en", // Added default language
@@ -221,7 +237,9 @@ export function NetworkScanner() {
     startRegistration, 
     stopRegistration,
     removeUser, 
-    loadUsers 
+    loadUsers,
+    syncHostsWithBot,
+    updateUserNotifications
   } = useTelegramBot(settings.telegram.botToken, settings.telegram.enabled)
 
   // Tauri API functions
@@ -280,7 +298,17 @@ export function NetworkScanner() {
   // Отправка системного уведомления
   const sendNotification = async (title: string, body: string) => {
     try {
+      // Send system notification
       await invokeTauri('send_system_notification_command', { title, body })
+      
+      // Send Telegram notification if bot is enabled and running
+      if (settings.telegram.enabled && telegramStatus.isRunning) {
+        try {
+          await invokeTauri('send_telegram_notification', { title, body })
+        } catch (error) {
+          console.error('Failed to send Telegram notification:', error);
+        }
+      }
     } catch (error) {
       console.error('Failed to send notification:', error);
       // Silent fail for notifications
@@ -293,6 +321,19 @@ export function NetworkScanner() {
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings)
+        
+        // Ensure telegram.notifications exists with default values
+        if (parsed.telegram && !parsed.telegram.notifications) {
+          parsed.telegram.notifications = {
+            printing: true,
+            paused: true,
+            cancelling: true,
+            error: true,
+            standby: false,
+            offline: true,
+          }
+        }
+        
         setSettings(prev => ({ ...prev, ...parsed }))
       } catch (error) {
         // Silent fail for settings loading
@@ -334,6 +375,13 @@ export function NetworkScanner() {
       }
     }
   }, [])
+
+  // Sync hosts with Telegram bot when hosts change
+  useEffect(() => {
+    if (hosts.length > 0 && telegramStatus.isRunning) {
+      syncHostsWithBot(hosts)
+    }
+  }, [hosts, telegramStatus.isRunning, syncHostsWithBot])
 
   // Save hosts to localStorage
   useEffect(() => {
@@ -812,8 +860,16 @@ export function NetworkScanner() {
    * @returns Status string for display
    */
   const getPrinterStatus = (host: HostInfo): string => {
+    console.log('getPrinterStatus called for host:', host.hostname, {
+      status: host.status,
+      klippy_state: host.klippy_state,
+      device_status: host.device_status,
+      printer_flags: host.printer_flags
+    });
+    
     // First check if host is marked as offline
     if (host.status === 'offline') {
+      console.log('Host is offline:', host.hostname);
       return 'offline'
     }
     
@@ -850,9 +906,11 @@ export function NetworkScanner() {
       return 'printing'
     }
     if (flags.ready) {
+      console.log('Host is ready (standby):', host.hostname);
       return 'standby'
     }
     
+    console.log('Host is standby (default):', host.hostname);
     return 'standby'
   }
 
@@ -868,17 +926,53 @@ export function NetworkScanner() {
     if (oldStatus !== newStatus) {
       // Get current settings to ensure we have the latest notification preferences
       const currentSettings = JSON.parse(localStorage.getItem('networkScanner_settings') || '{}')
+      
+      // Ensure telegram.notifications exists with default values
+      if (currentSettings.telegram && !currentSettings.telegram.notifications) {
+        currentSettings.telegram.notifications = {
+          printing: true,
+          paused: true,
+          cancelling: true,
+          error: true,
+          standby: false,
+          offline: true,
+        }
+      }
+      
       const notifications = currentSettings.notifications || settings.notifications
+      const telegramNotifications = currentSettings.telegram?.notifications || {
+        printing: true,
+        paused: true,
+        cancelling: true,
+        error: true,
+        standby: false,
+        offline: true,
+      }
       
       // Check if notifications are enabled for this status
       const statusKey = newStatus as keyof typeof notifications
-      const notificationEnabled = notifications[statusKey];
+      const systemNotificationEnabled = notifications[statusKey];
+      const telegramNotificationEnabled = telegramNotifications[statusKey];
       
-      if (notificationEnabled) {
+      // Send system notification if enabled
+      if (systemNotificationEnabled) {
         const title = `${t.networkScanner} - ${oldHost.hostname}`
         const body = `${t.status}: ${t[statusKey as keyof typeof t] || newStatus}`
         
-        sendNotification(title, body)
+        // Send system notification
+        invokeTauri('send_system_notification_command', { title, body }).catch(error => {
+          console.error('Failed to send system notification:', error);
+        });
+      }
+      
+      // Send Telegram notification if enabled
+      if (telegramNotificationEnabled && currentSettings.telegram?.enabled) {
+        const title = `${t.networkScanner} - ${oldHost.hostname}`
+        const body = `${t.status}: ${t[statusKey as keyof typeof t] || newStatus}`
+        
+        invokeTauri('send_telegram_notification', { title, body }).catch(error => {
+          console.error('Failed to send Telegram notification:', error);
+        });
       }
     }
   }
@@ -1105,8 +1199,10 @@ export function NetworkScanner() {
                     </TabsContent>
 
                     <TabsContent value="notifications" className="space-y-4 mt-4">
-                                              <div className="space-y-3">
-                          <Label>{t.enableNotificationsFor}</Label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* System Notifications */}
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold">{t.enableNotificationsFor}</Label>
                           {[
                             { key: 'printing', label: t.printing },
                             { key: 'paused', label: t.paused },
@@ -1143,19 +1239,82 @@ export function NetworkScanner() {
                               </Label>
                             </div>
                           ))}
-                          
-                                                      {/* Test notification button */}
-                            <div className="pt-4 border-t space-y-2">
-                              <Button 
-                                onClick={() => sendNotification('Test Notification', 'This is a test notification to verify the system is working')}
-                                variant="outline"
-                                className="w-full"
-                              >
-                                Test Notification
-                              </Button>
-                              
-                            </div>
                         </div>
+
+                        {/* Telegram Notifications */}
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold">Telegram Notifications</Label>
+                          {[
+                            { key: 'printing', label: t.printing },
+                            { key: 'paused', label: t.paused },
+                            { key: 'cancelling', label: t.cancelling },
+                            { key: 'error', label: t.error },
+                            { key: 'standby', label: t.standby },
+                            { key: 'offline', label: t.offline }
+                          ].map(({ key, label }) => (
+                            <div key={`telegram-${key}`} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`telegram-${key}`}
+                                checked={settings.telegram.notifications?.[key as keyof typeof settings.telegram.notifications] || false}
+                                disabled={!settings.telegram.enabled}
+                                onCheckedChange={(checked) => {
+                                  setSettings((prev) => ({
+                                    ...prev,
+                                    telegram: {
+                                      ...prev.telegram,
+                                      notifications: {
+                                        ...(prev.telegram.notifications || {
+                                          printing: true,
+                                          paused: true,
+                                          cancelling: true,
+                                          error: true,
+                                          standby: false,
+                                          offline: true,
+                                        }),
+                                        [key]: checked as boolean,
+                                      },
+                                    },
+                                  }));
+                                }}
+                              />
+                              <Label htmlFor={`telegram-${key}`} className={`capitalize ${!settings.telegram.enabled ? 'text-gray-400' : ''}`}>
+                                {label}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                          
+                      {/* Test notification buttons */}
+                      <div className="pt-4 border-t space-y-2">
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => sendNotification('Test System Notification', 'This is a test system notification to verify the system is working')}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            Test System
+                          </Button>
+                          
+                          <Button 
+                            onClick={async () => {
+                              try {
+                                await invokeTauri('send_telegram_notification', { 
+                                  title: 'Test Telegram Notification', 
+                                  body: 'This is a test Telegram notification to verify the bot is working' 
+                                })
+                              } catch (error) {
+                                console.error('Failed to send test Telegram notification:', error);
+                              }
+                            }}
+                            variant="outline"
+                            className="flex-1"
+                            disabled={!settings.telegram.enabled || !telegramStatus.isRunning}
+                          >
+                            Test Telegram
+                          </Button>
+                        </div>
+                      </div>
                     </TabsContent>
 
                     <TabsContent value="language" className="space-y-4 mt-4">
@@ -1216,18 +1375,44 @@ export function NetworkScanner() {
                               <Input
                                 id="telegram-bot-token"
                                 placeholder="Enter your Telegram bot token"
-                                value={settings.telegram.botToken}
-                                onChange={(e) => 
+                                value={settings.telegram.botToken ? settings.telegram.botToken.replace(/(.{4}).*(.{4})/, '$1****$2') : ''}
+                                onChange={(e) => {
+                                  // Don't allow editing of masked token
+                                  if (settings.telegram.botToken) {
+                                    return;
+                                  }
                                   setSettings((prev) => ({
                                     ...prev,
                                     telegram: {
                                       ...prev.telegram,
                                       botToken: e.target.value
                                     }
-                                  }))
-                                }
+                                  }));
+                                }}
                                 className="mt-2"
+                                readOnly={!!settings.telegram.botToken}
                               />
+                              {settings.telegram.botToken && (
+                                <div className="flex items-center justify-between mt-1">
+                                  <div className="text-xs text-muted-foreground">
+                                    Token saved and hidden for security
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSettings((prev) => ({
+                                      ...prev,
+                                      telegram: {
+                                        ...prev.telegram,
+                                        botToken: ""
+                                      }
+                                    }))}
+                                    className="h-6 px-2 text-xs"
+                                  >
+                                    Change
+                                  </Button>
+                                </div>
+                              )}
                               <p className="text-xs text-muted-foreground mt-1">
                                 Get your bot token from @BotFather on Telegram
                               </p>
@@ -1312,14 +1497,33 @@ export function NetworkScanner() {
                                         ID: {user.user_id} • Registered: {new Date(user.registered_at).toLocaleDateString()}
                                       </div>
                                     </div>
-                                    <Button
-                                      variant="destructive"
-                                      size="sm"
-                                      onClick={() => removeUser(user.user_id)}
-                                      className="ml-2"
-                                    >
-                                      Remove
-                                    </Button>
+                                    <div className="flex items-center space-x-2">
+                                      <div className="flex items-center space-x-1">
+                                        <input
+                                          type="checkbox"
+                                          id={`notifications-${user.user_id}`}
+                                          checked={user.notifications_enabled === true}
+                                          onChange={(e) => {
+                                            updateUserNotifications(user.user_id, e.target.checked);
+                                          }}
+                                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                        />
+                                        <label htmlFor={`notifications-${user.user_id}`} className="text-xs text-gray-600 dark:text-gray-400">
+                                          Notifications
+                                        </label>
+                                      </div>
+                                      <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => {
+                                          console.log('Removing user:', user.user_id);
+                                          removeUser(user.user_id);
+                                        }}
+                                        className="ml-2"
+                                      >
+                                        Remove
+                                      </Button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>

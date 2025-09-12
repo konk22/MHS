@@ -8,6 +8,7 @@ pub struct TelegramUser {
     pub first_name: Option<String>,
     pub last_name: Option<String>,
     pub registered_at: chrono::DateTime<chrono::Utc>,
+    pub notifications_enabled: bool,
 }
 
 impl TelegramUser {
@@ -18,6 +19,7 @@ impl TelegramUser {
             first_name: Some(first_name),
             last_name,
             registered_at: chrono::Utc::now(),
+            notifications_enabled: true, // Default to enabled
         }
     }
 }
