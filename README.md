@@ -21,6 +21,7 @@ Desktop application for discovering, monitoring, and controlling 3D printers on 
 - **Host Persistence** - Known hosts are preserved across scans even when offline
 - **Custom Hostnames** - Edit and customize host display names
 - **Manual Host Sorting** - Drag and drop to reorder hosts
+- **Telegram Bot Integration** - Remote monitoring and control via Telegram bot
 
 ## Screenshots
 
@@ -78,6 +79,21 @@ The application is not signed with an Apple Developer certificate. Remove from q
    ```
 4. **Launch the application**
 
+### Telegram Bot Setup
+
+1. **Create a bot** via [@BotFather](https://t.me/botfather) in Telegram
+2. **Get bot token** from BotFather
+3. **Configure the bot** in the application:
+   - Open application settings
+   - Go to "Telegram Bot" tab
+   - Enter bot token
+   - Click "Start Bot"
+4. **Register in the bot**:
+   - Find your bot in Telegram
+   - Send `/start` command
+   - Enter registration code from the application
+   - Start using the bot for printer monitoring
+
 ## Usage
 
 ### Network Configuration
@@ -124,11 +140,34 @@ The application is not signed with an Apple Developer certificate. Remove from q
 - **System tray** with show/hide/quit options
 - **Host persistence** - Offline hosts remain in the list
 
+### Telegram Bot Usage
+- **View host list** - Get list of all discovered printers
+- **Monitor status** - View current status of each printer
+- **Detailed information** - Get information about current print job
+- **Print control** - Stop printing with confirmation
+- **Firmware restart** - Restart printer firmware
+- **Webcam access** - Get snapshots from printer cameras
+- **Open in browser** - Quick access to printer web interface
+- **Emergency stop** - Emergency stop with additional confirmation
+
+### Telegram Bot Integration
+- **Remote monitoring** - View printer status and print progress from anywhere
+- **Host management** - Browse and select hosts via interactive menus
+- **Print control** - Start, pause, stop, and emergency stop printing remotely
+- **Webcam access** - View printer webcam feeds directly in Telegram
+- **Firmware control** - Restart printer firmware remotely
+- **Browser integration** - Open printer web interfaces directly from Telegram
+- **User authentication** - Secure registration system with verification codes
+- **Real-time updates** - Live status updates and print progress monitoring
+- **Interactive menus** - Intuitive navigation with inline keyboards
+- **Multi-language support** - Bot interface in English, Russian, and German
+
 ## Development
 
 ### Key Technologies
 - **Frontend**: React 19, TypeScript, Tailwind CSS, Next.js 15
 - **Backend**: Rust, Tauri 2.0
+- **Telegram Bot**: Rust, teloxide crate
 - **Build**: Vite, Next.js
 - **Package Manager**: pnpm
 
@@ -136,6 +175,7 @@ The application is not signed with an Apple Developer certificate. Remove from q
 - **Modular Rust backend** with separate modules for different functionality
 - **React frontend** with custom hooks for state management
 - **Tauri commands** for native system integration
+- **Telegram bot integration** with secure user authentication
 - **Background monitoring** with system tray integration
 - **Cross-platform compatibility** (Windows, macOS, Linux)
 - **Local storage** for settings and host persistence

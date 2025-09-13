@@ -63,6 +63,30 @@ pub struct EmergencyStopRequestState {
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserSessionState {
+    pub user_id: i64,
+    pub current_menu: MenuState,
+    pub last_message_id: Option<teloxide::types::MessageId>,
+    pub selected_host_id: Option<String>,
+    pub emergency_confirmation: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MenuState {
+    Main,
+    Hosts,
+    HostDetails(String), // host_id
+    Settings,
+    EmergencyConfirm(String), // host_id
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HostCache {
+    pub hosts: Vec<crate::models::HostInfo>,
+    pub last_updated: chrono::DateTime<chrono::Utc>,
+}
+
 impl RegistrationState {
     pub fn new() -> Self {
         Self {
@@ -183,5 +207,43 @@ impl EmergencyStopRequestState {
         self.is_active = false;
         self.user_id = 0;
         self.expires_at = None;
+    }
+}
+
+impl UserSessionState {
+    pub fn new(user_id: i64) -> Self {
+        Self {
+            user_id,
+            current_menu: MenuState::Main,
+            last_message_id: None,
+            selected_host_id: None,
+            emergency_confirmation: false,
+        }
+    }
+
+    pub fn set_menu(&mut self, menu: MenuState) {
+        self.current_menu = menu;
+    }
+
+    pub fn set_message_id(&mut self, message_id: teloxide::types::MessageId) {
+        self.last_message_id = Some(message_id);
+    }
+}
+
+impl HostCache {
+    pub fn new() -> Self {
+        Self {
+            hosts: Vec::new(),
+            last_updated: chrono::Utc::now(),
+        }
+    }
+
+    pub fn update_hosts(&mut self, hosts: Vec<crate::models::HostInfo>) {
+        self.hosts = hosts;
+        self.last_updated = chrono::Utc::now();
+    }
+
+    pub fn is_stale(&self) -> bool {
+        chrono::Utc::now() - self.last_updated > chrono::Duration::seconds(30)
     }
 }

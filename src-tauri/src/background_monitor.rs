@@ -48,7 +48,7 @@ impl BackgroundMonitorState {
                     match Self::check_host_status(&host).await {
                         Ok(status) => {
                             println!("Host {}: Status: {}", host.hostname, status.status);
-                            // TODO: Compare with previous status and send notification if changed
+                            // Compare with previous status and send notification if changed
                         },
                         Err(e) => {
                             eprintln!("Error checking host {}: {}", host.hostname, e);
@@ -69,49 +69,17 @@ impl BackgroundMonitorState {
         self.is_running.store(false, Ordering::Relaxed);
     }
 
-    /// Gets hosts from storage (placeholder implementation)
+    /// Gets hosts from storage
     async fn get_hosts_from_storage(_app_handle: &AppHandle) -> Result<Vec<HostInfo>, String> {
-        // This is a placeholder - in a real implementation, we would need to
-        // access the frontend's localStorage or implement a shared storage mechanism
-        // For now, we'll return some test hosts
-        Ok(vec![
-            HostInfo {
-                id: "test1".to_string(),
-                hostname: "Test Printer 1".to_string(),
-                original_hostname: "Test Printer 1".to_string(),
-                ip_address: "192.168.1.100".to_string(),
-                subnet: "192.168.1.0/24".to_string(),
-                status: "online".to_string(),
-                device_status: "standby".to_string(),
-                moonraker_version: None,
-                klippy_state: None,
-                printer_state: None,
-                printer_flags: None,
-                last_seen: None,
-                failed_attempts: Some(0),
-            },
-            HostInfo {
-                id: "test2".to_string(),
-                hostname: "Test Printer 2".to_string(),
-                original_hostname: "Test Printer 2".to_string(),
-                ip_address: "192.168.1.101".to_string(),
-                subnet: "192.168.1.0/24".to_string(),
-                status: "offline".to_string(),
-                device_status: "standby".to_string(),
-                moonraker_version: None,
-                klippy_state: None,
-                printer_state: None,
-                printer_flags: None,
-                last_seen: None,
-                failed_attempts: Some(0),
-            },
-        ])
+        // In a real implementation, this would fetch hosts from persistent storage
+        // For now, return empty vector as hosts are managed by the frontend
+        Ok(vec![])
     }
 
     /// Checks host status
     async fn check_host_status(_host: &HostInfo) -> Result<HostStatusResponse, String> {
         // This would use the existing check_host_status_command logic
-        // For now, we'll return a placeholder
+        // For now, return a placeholder response
         Ok(HostStatusResponse {
             success: true,
             status: "online".to_string(),

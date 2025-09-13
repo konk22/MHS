@@ -9,16 +9,16 @@ use std::path::PathBuf;
 
 /// Application configuration constants
 pub const DEFAULT_TIMEOUT_SECONDS: u64 = 5;
-pub const DEFAULT_PORT_SCAN_TIMEOUT_MS: u64 = 500; // Быстрый таймаут для определения offline
+pub const DEFAULT_PORT_SCAN_TIMEOUT_MS: u64 = 500; // Fast timeout for offline detection
 pub const MOONRAKER_PORT: u16 = 7125;
 pub const WEBCAM_PORT: u16 = 8080;
 
-// Новые константы для оптимизированного сканирования
-pub const PORT_SCAN_CONCURRENCY: usize = 200; // Максимум одновременных портовых проверок
-pub const API_SCAN_CONCURRENCY: usize = 50;   // Максимум одновременных API запросов
-pub const PORT_SCAN_RETRY_COUNT: u32 = 1;     // Количество повторных попыток для портов
-pub const API_SCAN_RETRY_COUNT: u32 = 1;      // Количество повторных попыток для API (быстрое определение offline)
-pub const SLOW_NETWORK_TIMEOUT_MS: u64 = 800; // Таймаут для медленных сетей (уменьшен)
+// Optimized scanning constants
+pub const PORT_SCAN_CONCURRENCY: usize = 200; // Maximum concurrent port checks
+pub const API_SCAN_CONCURRENCY: usize = 50;   // Maximum concurrent API requests
+pub const PORT_SCAN_RETRY_COUNT: u32 = 1;     // Number of retry attempts for ports
+pub const API_SCAN_RETRY_COUNT: u32 = 1;      // Number of retry attempts for API (fast offline detection)
+pub const SLOW_NETWORK_TIMEOUT_MS: u64 = 800; // Timeout for slow networks (reduced)
 
 /// Notification settings for different printer states
 #[derive(Debug, Serialize, Deserialize, Clone)]
