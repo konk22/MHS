@@ -228,12 +228,177 @@ jobs:
           name: moonraker-host-scanner-linux-x86_64
           path: src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/
           retention-days: 30
+  build-linux-arm:
+    runs-on: ubuntu-latest
+    # Note: Using cross-compilation from x86_64 to ARM64
+    # Alternative: runs-on: ubuntu-22.04-arm (if available in your region)
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+      - name: Install cross-compilation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross
+          # Install ARM versions of system libraries
+          sudo apt-get install -y libwebkit2gtk-4.1-dev:arm64 libgtk-3-dev:arm64 libayatana-appindicator3-dev:arm64 librsvg2-dev:arm64
+      - name: Configure Rust for cross-compilation
+        run: |
+          rustup target add aarch64-unknown-linux-gnu
+          mkdir -p ~/.cargo
+          cat > ~/.cargo/config.toml << EOF
+          [target.aarch64-unknown-linux-gnu]
+          linker = "aarch64-linux-gnu-gcc"
+          [env]
+          CC_aarch64_unknown_linux_gnu = "aarch64-linux-gnu-gcc"
+          CXX_aarch64_unknown_linux_gnu = "aarch64-linux-gnu-g++"
+          AR_aarch64_unknown_linux_gnu = "aarch64-linux-gnu-ar"
+          PKG_CONFIG_PATH = "/usr/lib/aarch64-linux-gnu/pkgconfig"
+          PKG_CONFIG_LIBDIR = "/usr/lib/aarch64-linux-gnu/pkgconfig"
+          EOF
+      - name: Debug cross-compilation setup
+        run: |
+          echo "=== Cross-compilation setup debug ==="
+          echo "Rust targets:"
+          rustup target list --installed
+          echo "Cargo config:"
+          cat ~/.cargo/config.toml || echo "No cargo config found"
+          echo "Available ARM libraries:"
+          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/ || echo "No ARM pkgconfig found"
+          echo "GCC version:"
+          aarch64-linux-gnu-gcc --version || echo "GCC not found"
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build Next.js
+        run: pnpm build
+      - name: Build Tauri application for Linux ARM
+        run: |
+          echo "Starting ARM build..."
+          # Try to build with verbose output and better error handling
+          set -e
+          pnpm tauri build --target aarch64-unknown-linux-gnu --verbose || {
+            echo "Build failed, trying to identify the issue..."
+            echo "Checking if it's a dependency issue..."
+            cargo check --target aarch64-unknown-linux-gnu --verbose || true
+            echo "Checking specific dependencies..."
+            cargo tree --target aarch64-unknown-linux-gnu || true
+            echo "Checking if it's a system library issue..."
+            find /usr/lib/aarch64-linux-gnu -name "*.so*" | head -10 || true
+            echo "Checking if it's a pkg-config issue..."
+            pkg-config --list-all | grep -i gtk || true
+            echo "Checking if it's a webkit issue..."
+            pkg-config --list-all | grep -i webkit || true
+            echo "Checking if it's a notify-rust issue..."
+            cargo check --target aarch64-unknown-linux-gnu --package notify-rust || true
+            echo "Checking if it's a teloxide issue..."
+            cargo check --target aarch64-unknown-linux-gnu --package teloxide || true
+            echo "Checking if it's a reqwest issue..."
+            cargo check --target aarch64-unknown-linux-gnu --package reqwest || true
+            exit 1
+          }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PKG_CONFIG_PATH: "/usr/lib/aarch64-linux-gnu/pkgconfig"
+          PKG_CONFIG_LIBDIR: "/usr/lib/aarch64-linux-gnu/pkgconfig"
+          RUST_BACKTRACE: "1"
+      - name: Create AppImage for Linux ARM
+        run: |
+          cd src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/appimage
+          chmod +x *.AppImage
+      - name: Upload Linux ARM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-aarch64
+          path: src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/
+          retention-days: 30
+  build-linux-arm-native:
+    runs-on: ubuntu-22.04-arm
+    # Alternative approach: use native ARM runner if available
+    continue-on-error: true
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build Next.js
+        run: pnpm build
+      - name: Build Tauri application for Linux ARM (native)
+        run: pnpm tauri build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create AppImage for Linux ARM (native)
+        run: |
+          cd src-tauri/target/release/bundle/appimage
+          chmod +x *.AppImage
+      - name: Upload Linux ARM native artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-aarch64-native
+          path: src-tauri/target/release/bundle/
+          retention-days: 30
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
-    needs: [build-macos-arm, build-macos-x86, build-windows-x86, build-windows-arm, build-linux-x86]
+    needs: [build-macos-arm, build-macos-x86, build-windows-x86, build-windows-arm, build-linux-x86, build-linux-arm, build-linux-arm-native]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -262,6 +427,17 @@ jobs:
         with:
           name: moonraker-host-scanner-linux-x86_64
           path: ./artifacts/linux-x86_64
+      - name: Download Linux ARM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: moonraker-host-scanner-linux-aarch64
+          path: ./artifacts/linux-aarch64
+      - name: Download Linux ARM native artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: moonraker-host-scanner-linux-aarch64-native
+          path: ./artifacts/linux-aarch64-native
       - name: Debug artifacts structure
         run: |
           echo "Artifacts structure:"
@@ -281,7 +457,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }} (macOS ARM + x86, Windows x86 + ARM, Linux x86)
+          name: Release ${{ github.ref_name }} (macOS ARM + x86, Windows x86 + ARM, Linux x86 + ARM)
           draft: false
           prerelease: false
           body: |
@@ -297,6 +473,7 @@ jobs:
 
             ### 🐧 Linux Builds
             - **Linux x86_64** (`.AppImage`, `.deb`, `.rpm` for Intel/AMD PCs)
+            - **Linux ARM64** (`.AppImage`, `.deb`, `.rpm` for ARM-based devices like Raspberry Pi, ARM servers)
 
             ### 📦 Installation
             #### macOS
@@ -325,6 +502,8 @@ jobs:
                ```bash
                sudo rpm -i moonraker-host-scanner-*.rpm
                ```
+            
+            **Note**: Choose the appropriate architecture (x86_64 for Intel/AMD, aarch64 for ARM) based on your system.
 
             ### 🔧 Features
             - Network scanning for Moonraker printers
