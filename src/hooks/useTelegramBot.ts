@@ -16,7 +16,7 @@ export interface TelegramBotStatus {
   error: string | null
 }
 
-export function useTelegramBot(botToken: string, enabled: boolean) {
+export function useTelegramBot(enabled: boolean) {
   const [status, setStatus] = useState<TelegramBotStatus>({
     isRunning: false,
     isLoading: false,
@@ -25,6 +25,7 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
   const [users, setUsers] = useState<TelegramUser[]>([])
   const [registrationCode, setRegistrationCode] = useState<string | null>(null)
   const [registrationTimeLeft, setRegistrationTimeLeft] = useState<number | null>(null)
+  const [hasToken, setHasToken] = useState<boolean>(false)
 
   const checkStatus = useCallback(async () => {
     try {
@@ -47,28 +48,16 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
     try {
       const users = await tauriCommands.getTelegramUsers()
       setUsers(users)
-      // Save to localStorage
-      localStorage.setItem('telegram_users', JSON.stringify(users))
     } catch (error) {
       console.error('Failed to load users:', error)
-      // Try to load from localStorage as fallback
-      try {
-        const stored = localStorage.getItem('telegram_users')
-        if (stored) {
-          const users = JSON.parse(stored)
-          setUsers(users)
-        }
-      } catch (e) {
-        console.error('Failed to load users from localStorage:', e)
-      }
     }
   }, [])
 
-  const saveUsersToLocalStorage = useCallback((users: TelegramUser[]) => {
+  const saveUsersToBackend = useCallback(async (users: TelegramUser[]) => {
     try {
-      localStorage.setItem('telegram_users', JSON.stringify(users))
+      await tauriCommands.saveTelegramUsers(users)
     } catch (error) {
-      console.error('Failed to save users to localStorage:', error)
+      console.error('Failed to save users to backend:', error)
     }
   }, [])
 
@@ -115,7 +104,7 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
       // Also reload from backend to ensure consistency
       const updatedUsers = await tauriCommands.getTelegramUsers()
       setUsers(updatedUsers)
-      saveUsersToLocalStorage(updatedUsers)
+      await saveUsersToBackend(updatedUsers)
     } catch (error) {
       console.error('Failed to remove user:', error);
       setStatus(prev => ({ 
@@ -123,7 +112,7 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
         error: error instanceof Error ? error.message : 'Failed to remove user'
       }))
     }
-  }, [saveUsersToLocalStorage])
+  }, [saveUsersToBackend])
 
   const updateUserNotifications = useCallback(async (userId: number, notificationsEnabled: boolean) => {
     try {
@@ -141,7 +130,7 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
       // Also reload from backend to ensure consistency
       const updatedUsers = await tauriCommands.getTelegramUsers()
       setUsers(updatedUsers)
-      saveUsersToLocalStorage(updatedUsers)
+      await saveUsersToBackend(updatedUsers)
     } catch (error) {
       console.error('Failed to update user notifications:', error);
       setStatus(prev => ({ 
@@ -149,10 +138,44 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
         error: error instanceof Error ? error.message : 'Failed to update user notifications'
       }))
     }
-  }, [saveUsersToLocalStorage])
+  }, [saveUsersToBackend])
+
+  const saveToken = useCallback(async (token: string) => {
+    try {
+      await tauriCommands.saveTelegramBotToken(token)
+      setHasToken(true)
+      return true
+    } catch (error) {
+      console.error('Failed to save token:', error)
+      return false
+    }
+  }, [])
+
+  const clearToken = useCallback(async () => {
+    try {
+      await tauriCommands.clearTelegramBotToken()
+      setHasToken(false)
+      // Stop bot if running
+      if (status.isRunning) {
+        await stopBot()
+      }
+    } catch (error) {
+      console.error('Failed to clear token:', error)
+    }
+  }, [status.isRunning])
+
+  const checkToken = useCallback(async () => {
+    try {
+      const token = await tauriCommands.getTelegramBotToken()
+      setHasToken(!!token)
+    } catch (error) {
+      console.error('Failed to check token:', error)
+      setHasToken(false)
+    }
+  }, [])
 
   const startBot = useCallback(async () => {
-    if (!botToken.trim()) {
+    if (!hasToken) {
       setStatus(prev => ({ ...prev, error: 'Bot token is required' }))
       return
     }
@@ -160,7 +183,7 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
     setStatus(prev => ({ ...prev, isLoading: true, error: null }))
     
     try {
-      await tauriCommands.startTelegramBot(botToken)
+      await tauriCommands.startTelegramBot()
       setStatus(prev => ({ ...prev, isRunning: true, isLoading: false, error: null }))
     } catch (error) {
       setStatus(prev => ({ 
@@ -170,7 +193,7 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
         isRunning: false 
       }))
     }
-  }, [botToken])
+  }, [hasToken])
 
   const stopBot = useCallback(async () => {
     setStatus(prev => ({ ...prev, isLoading: true, error: null }))
@@ -187,14 +210,27 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
     }
   }, [])
 
+  // Load settings and check token on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        await tauriCommands.loadTelegramSettings()
+        await checkToken()
+      } catch (error) {
+        console.error('Failed to load Telegram settings:', error)
+      }
+    }
+    loadSettings()
+  }, [checkToken])
+
   // Auto-start/stop bot when enabled state changes
   useEffect(() => {
-    if (enabled && botToken.trim()) {
+    if (enabled && hasToken) {
       startBot()
     } else if (!enabled && status.isRunning) {
       stopBot()
     }
-  }, [enabled, botToken, startBot, stopBot, status.isRunning])
+  }, [enabled, hasToken, startBot, stopBot, status.isRunning])
 
   // Auto-refresh users list when bot is running
   useEffect(() => {
@@ -212,7 +248,7 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
               // Force reload users when registration completes
               const updatedUsers = await tauriCommands.getTelegramUsers()
               setUsers(updatedUsers)
-              saveUsersToLocalStorage(updatedUsers)
+              await saveUsersToBackend(updatedUsers)
             }
           } catch (error) {
             console.error('Failed to check registration status:', error)
@@ -222,7 +258,7 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
 
       return () => clearInterval(interval)
     }
-  }, [status.isRunning, loadUsers, registrationCode, saveUsersToLocalStorage])
+  }, [status.isRunning, loadUsers, registrationCode, saveUsersToBackend])
 
   // Function to sync hosts with Telegram bot
   const syncHostsWithBot = useCallback(async (hosts: any[]) => {
@@ -254,24 +290,15 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
   // Check status on mount
   useEffect(() => {
     checkStatus()
-    
-    // Load users from localStorage on mount
-    try {
-      const stored = localStorage.getItem('telegram_users')
-      if (stored) {
-        const users = JSON.parse(stored)
-        setUsers(users)
-      }
-    } catch (e) {
-      console.error('Failed to load users from localStorage on mount:', e)
-    }
-  }, [checkStatus])
+    loadUsers()
+  }, [checkStatus, loadUsers])
 
   return {
     status,
     users,
     registrationCode,
     registrationTimeLeft,
+    hasToken,
     startBot,
     stopBot,
     checkStatus,
@@ -281,5 +308,7 @@ export function useTelegramBot(botToken: string, enabled: boolean) {
     loadUsers,
     syncHostsWithBot,
     updateUserNotifications,
+    saveToken,
+    clearToken,
   }
 }

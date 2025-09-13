@@ -154,7 +154,6 @@ interface AppSettings {
   }
   telegram: {
     enabled: boolean
-    botToken: string
     notifications: {
       printing: boolean
       paused: boolean
@@ -195,7 +194,6 @@ export function NetworkScanner() {
     },
     telegram: {
       enabled: false,
-      botToken: "",
       notifications: {
         printing: true,
         paused: true,
@@ -232,6 +230,7 @@ export function NetworkScanner() {
     users: telegramUsers, 
     registrationCode, 
     registrationTimeLeft,
+    hasToken,
     startBot, 
     stopBot, 
     startRegistration, 
@@ -239,8 +238,10 @@ export function NetworkScanner() {
     removeUser, 
     loadUsers,
     syncHostsWithBot,
-    updateUserNotifications
-  } = useTelegramBot(settings.telegram.botToken, settings.telegram.enabled)
+    updateUserNotifications,
+    saveToken,
+    clearToken
+  } = useTelegramBot(settings.telegram.enabled)
 
   // Tauri API functions
   const invokeTauri = async (command: string, args?: any) => {
@@ -304,7 +305,7 @@ export function NetworkScanner() {
       // Send Telegram notification if bot is enabled and running
       if (settings.telegram.enabled && telegramStatus.isRunning) {
         try {
-          await invokeTauri('send_telegram_notification', { title, body })
+          await invokeTauri('send_telegram_notification', { title, body, hostIp: undefined })
         } catch (error) {
           console.error('Failed to send Telegram notification:', error);
         }
@@ -332,6 +333,11 @@ export function NetworkScanner() {
             standby: false,
             offline: true,
           }
+        }
+        
+        // Remove botToken from old settings if it exists
+        if (parsed.telegram && parsed.telegram.botToken) {
+          delete parsed.telegram.botToken
         }
         
         setSettings(prev => ({ ...prev, ...parsed }))
@@ -382,6 +388,21 @@ export function NetworkScanner() {
       syncHostsWithBot(hosts)
     }
   }, [hosts, telegramStatus.isRunning, syncHostsWithBot])
+
+  // Update network names when language changes
+  useEffect(() => {
+    setSettings(prev => ({
+      ...prev,
+      subnets: prev.subnets.map(subnet => {
+        if (subnet.id === "1") {
+          return { ...subnet, name: t.mainNetwork }
+        } else if (subnet.id === "2") {
+          return { ...subnet, name: t.guestNetwork }
+        }
+        return subnet
+      })
+    }))
+  }, [t.mainNetwork, t.guestNetwork])
 
   // Save hosts to localStorage
   useEffect(() => {
@@ -633,16 +654,16 @@ export function NetworkScanner() {
       // Преобразуем действие в правильный формат для API
       let apiAction = ''
       switch (action) {
-        case 'Pause':
+        case t.pause:
           apiAction = 'pause'
           break
-        case 'Resume':
+        case t.resume:
           apiAction = 'resume'
           break
-        case 'Stop':
+        case t.stop:
           apiAction = 'cancel' // Moonraker использует 'cancel' для остановки
           break
-        case 'Emergency Stop':
+        case t.emergencyStop:
           apiAction = 'emergency_stop'
           break
         default:
@@ -970,7 +991,7 @@ export function NetworkScanner() {
         const title = `${t.networkScanner} - ${oldHost.hostname}`
         const body = `${t.status}: ${t[statusKey as keyof typeof t] || newStatus}`
         
-        invokeTauri('send_telegram_notification', { title, body }).catch(error => {
+        invokeTauri('send_telegram_notification', { title, body, hostIp: oldHost.ip_address }).catch(error => {
           console.error('Failed to send Telegram notification:', error);
         });
       }
@@ -1103,9 +1124,9 @@ export function NetworkScanner() {
                 <Tabs defaultValue="network" className="flex-1 flex flex-col overflow-hidden">
                   <TabsList className="flex w-full flex-shrink-0 justify-between">
                     <TabsTrigger value="network">{t.network}</TabsTrigger>
-                    <TabsTrigger value="ssh">SSH</TabsTrigger>
+                    <TabsTrigger value="ssh">{t.ssh}</TabsTrigger>
                     <TabsTrigger value="notifications">{t.notifications}</TabsTrigger>
-                    <TabsTrigger value="telegram">Telegram</TabsTrigger>
+                    <TabsTrigger value="telegram">{t.telegram}</TabsTrigger>
                     <TabsTrigger value="language">{t.language}</TabsTrigger>
                     <TabsTrigger value="about">{t.about}</TabsTrigger>
                   </TabsList>
@@ -1243,7 +1264,7 @@ export function NetworkScanner() {
 
                         {/* Telegram Notifications */}
                         <div className="space-y-3">
-                          <Label className="text-base font-semibold">Telegram Notifications</Label>
+                          <Label className="text-base font-semibold">{t.telegramNotifications}</Label>
                           {[
                             { key: 'printing', label: t.printing },
                             { key: 'paused', label: t.paused },
@@ -1289,19 +1310,20 @@ export function NetworkScanner() {
                       <div className="pt-4 border-t space-y-2">
                         <div className="flex gap-2">
                           <Button 
-                            onClick={() => sendNotification('Test System Notification', 'This is a test system notification to verify the system is working')}
+                            onClick={() => sendNotification(t.testSystemNotification, t.testSystemNotificationBody)}
                             variant="outline"
                             className="flex-1"
                           >
-                            Test System
+{t.testSystem}
                           </Button>
                           
                           <Button 
                             onClick={async () => {
                               try {
                                 await invokeTauri('send_telegram_notification', { 
-                                  title: 'Test Telegram Notification', 
-                                  body: 'This is a test Telegram notification to verify the bot is working' 
+                                  title: t.testTelegramNotification, 
+                                  body: t.testTelegramNotificationBody,
+                                  hostIp: undefined
                                 })
                               } catch (error) {
                                 console.error('Failed to send test Telegram notification:', error);
@@ -1311,7 +1333,7 @@ export function NetworkScanner() {
                             className="flex-1"
                             disabled={!settings.telegram.enabled || !telegramStatus.isRunning}
                           >
-                            Test Telegram
+{t.testTelegram}
                           </Button>
                         </div>
                       </div>
@@ -1338,9 +1360,9 @@ export function NetworkScanner() {
 
                     <TabsContent value="telegram" className="space-y-4 mt-4">
                       <div>
-                        <Label>Telegram Bot Integration</Label>
+                        <Label>{t.telegramBotIntegration}</Label>
                         <p className="text-sm text-muted-foreground mt-2">
-                          Configure Telegram bot for user registration. Only registered users can interact with the bot.
+                          {t.telegramBotDescription}
                         </p>
                         <div className="mt-4 space-y-4">
                           <div className="flex items-center space-x-2">
@@ -1357,12 +1379,12 @@ export function NetworkScanner() {
                                 }))
                               }
                             />
-                            <Label htmlFor="telegram-enabled">Enable Telegram Bot</Label>
+                            <Label htmlFor="telegram-enabled">{t.enableTelegramBot}</Label>
                             {telegramStatus.isLoading && (
-                              <span className="text-sm text-muted-foreground">Loading...</span>
+                              <span className="text-sm text-muted-foreground">{t.loading}</span>
                             )}
                             {telegramStatus.isRunning && (
-                              <span className="text-sm text-green-600">✓ Bot is running</span>
+                              <span className="text-sm text-green-600">{t.botIsRunning}</span>
                             )}
                             {telegramStatus.error && (
                               <span className="text-sm text-red-600">✗ {telegramStatus.error}</span>
@@ -1371,55 +1393,73 @@ export function NetworkScanner() {
                           
                           {settings.telegram.enabled && (
                             <div>
-                              <Label htmlFor="telegram-bot-token">Bot Token</Label>
-                              <Input
-                                id="telegram-bot-token"
-                                placeholder="Enter your Telegram bot token"
-                                value={settings.telegram.botToken ? settings.telegram.botToken.replace(/(.{4}).*(.{4})/, '$1****$2') : ''}
-                                onChange={(e) => {
-                                  // Don't allow editing of masked token
-                                  if (settings.telegram.botToken) {
-                                    return;
-                                  }
-                                  setSettings((prev) => ({
-                                    ...prev,
-                                    telegram: {
-                                      ...prev.telegram,
-                                      botToken: e.target.value
-                                    }
-                                  }));
-                                }}
-                                className="mt-2"
-                                readOnly={!!settings.telegram.botToken}
-                              />
-                              {settings.telegram.botToken && (
-                                <div className="flex items-center justify-between mt-1">
-                                  <div className="text-xs text-muted-foreground">
-                                    Token saved and hidden for security
+                              <Label htmlFor="telegram-bot-token">{t.botToken}</Label>
+                              {hasToken ? (
+                                <div>
+                                  <Input
+                                    id="telegram-bot-token"
+                                    value="••••••••••••••••••••••••••••••••"
+                                    className="mt-2"
+                                    readOnly
+                                  />
+                                  <div className="flex items-center justify-between mt-1">
+                                    <div className="text-xs text-muted-foreground">
+                                      {t.tokenSavedAndHidden}
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={clearToken}
+                                      className="h-6 px-2 text-xs"
+                                    >
+                                      {t.change}
+                                    </Button>
                                   </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <Input
+                                    id="telegram-bot-token"
+                                    placeholder={t.enterBotToken}
+                                    className="mt-2"
+                                    onKeyDown={async (e) => {
+                                      if (e.key === 'Enter') {
+                                        const token = e.currentTarget.value.trim()
+                                        if (token) {
+                                          const success = await saveToken(token)
+                                          if (success) {
+                                            e.currentTarget.value = ''
+                                          }
+                                        }
+                                      }
+                                    }}
+                                  />
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setSettings((prev) => ({
-                                      ...prev,
-                                      telegram: {
-                                        ...prev.telegram,
-                                        botToken: ""
+                                    className="mt-2"
+                                    onClick={async () => {
+                                      const input = document.getElementById('telegram-bot-token') as HTMLInputElement
+                                      const token = input?.value.trim()
+                                      if (token) {
+                                        const success = await saveToken(token)
+                                        if (success) {
+                                          input.value = ''
+                                        }
                                       }
-                                    }))}
-                                    className="h-6 px-2 text-xs"
+                                    }}
                                   >
-                                    Change
+                                    Save Token
                                   </Button>
                                 </div>
                               )}
                               <p className="text-xs text-muted-foreground mt-1">
-                                Get your bot token from @BotFather on Telegram
+                                {t.getBotTokenFromBotFather}
                               </p>
                             </div>
                           )}
                           
-                          {settings.telegram.enabled && settings.telegram.botToken && telegramStatus.isRunning && (
+                          {settings.telegram.enabled && hasToken && telegramStatus.isRunning && (
                             <div className="space-y-4">
                               <div className="space-y-2">
                                 <div className="flex items-center space-x-2">
@@ -1428,7 +1468,7 @@ export function NetworkScanner() {
                                     disabled={telegramStatus.isLoading || !!registrationCode}
                                     size="sm"
                                   >
-                                    {registrationCode ? "Registration Active" : "Start Registration"}
+{registrationCode ? t.registrationActive : t.startRegistration}
                                   </Button>
                                   {registrationCode && (
                                     <Button 
@@ -1436,14 +1476,14 @@ export function NetworkScanner() {
                                       variant="destructive"
                                       size="sm"
                                     >
-                                      Stop Registration
+{t.stopRegistration}
                                     </Button>
                                   )}
                                 </div>
                                 {registrationCode && (
                                   <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                                     <div className="flex items-center justify-between mb-2">
-                                      <h4 className="font-medium text-blue-900 dark:text-blue-100">Registration Active</h4>
+                                      <h4 className="font-medium text-blue-900 dark:text-blue-100">{t.registrationActive}</h4>
                                       {registrationTimeLeft && (
                                         <span className="text-sm text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
                                           {registrationTimeLeft}s
@@ -1466,14 +1506,14 @@ export function NetworkScanner() {
                           
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <Label>Registered Users ({telegramUsers.length})</Label>
+                              <Label>{t.registeredUsers} ({telegramUsers.length})</Label>
                               <Button 
                                 variant="outline" 
                                 size="sm" 
                                 onClick={loadUsers}
                                 disabled={!telegramStatus.isRunning}
                               >
-                                Refresh
+                                {t.refresh}
                               </Button>
                             </div>
                             {telegramUsers.length > 0 && (
@@ -1521,7 +1561,7 @@ export function NetworkScanner() {
                                         }}
                                         className="ml-2"
                                       >
-                                        Remove
+                                        {t.remove}
                                       </Button>
                                     </div>
                                   </div>
@@ -1786,13 +1826,13 @@ export function NetworkScanner() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleAPIAction("Resume", host.id)}
-                                  disabled={host.status !== "online" || loadingButtons.has(`${host.id}-Resume`)}
+                                  onClick={() => handleAPIAction(t.resume, host.id)}
+                                  disabled={host.status !== "online" || loadingButtons.has(`${host.id}-${t.resume}`)}
                                   className={`transition-all duration-200 ${
-                                    loadingButtons.has(`${host.id}-Resume`) ? 'opacity-75 scale-95' : ''
+                                    loadingButtons.has(`${host.id}-${t.resume}`) ? 'opacity-75 scale-95' : ''
                                   }`}
                                 >
-                                  {loadingButtons.has(`${host.id}-Resume`) ? (
+                                  {loadingButtons.has(`${host.id}-${t.resume}`) ? (
                                     <div className="animate-spin h-4 w-4 mr-1 border-2 border-current border-t-transparent rounded-full" />
                                   ) : (
                                     <Play className="h-4 w-4 mr-1" />
@@ -1803,13 +1843,13 @@ export function NetworkScanner() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleAPIAction("Pause", host.id)}
-                                  disabled={host.status !== "online" || loadingButtons.has(`${host.id}-Pause`)}
+                                  onClick={() => handleAPIAction(t.pause, host.id)}
+                                  disabled={host.status !== "online" || loadingButtons.has(`${host.id}-${t.pause}`)}
                                   className={`transition-all duration-200 ${
-                                    loadingButtons.has(`${host.id}-Pause`) ? 'opacity-75 scale-95' : ''
+                                    loadingButtons.has(`${host.id}-${t.pause}`) ? 'opacity-75 scale-95' : ''
                                   }`}
                                 >
-                                  {loadingButtons.has(`${host.id}-Pause`) ? (
+                                  {loadingButtons.has(`${host.id}-${t.pause}`) ? (
                                     <div className="animate-spin h-4 w-4 mr-1 border-2 border-current border-t-transparent rounded-full" />
                                   ) : (
                                     <Pause className="h-4 w-4 mr-1" />
@@ -1820,13 +1860,13 @@ export function NetworkScanner() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleAPIAction("Stop", host.id)}
-                                disabled={host.status !== "online" || loadingButtons.has(`${host.id}-Stop`)}
+                                onClick={() => handleAPIAction(t.stop, host.id)}
+                                disabled={host.status !== "online" || loadingButtons.has(`${host.id}-${t.stop}`)}
                                 className={`transition-all duration-200 ${
-                                  loadingButtons.has(`${host.id}-Stop`) ? 'opacity-75 scale-95' : ''
+                                  loadingButtons.has(`${host.id}-${t.stop}`) ? 'opacity-75 scale-95' : ''
                                 }`}
                               >
-                                {loadingButtons.has(`${host.id}-Stop`) ? (
+                                {loadingButtons.has(`${host.id}-${t.stop}`) ? (
                                   <div className="animate-spin h-4 w-4 mr-1 border-2 border-current border-t-transparent rounded-full" />
                                 ) : (
                                   <Square className="h-4 w-4 mr-1" />
@@ -1836,13 +1876,13 @@ export function NetworkScanner() {
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                onClick={() => handleAPIAction("Emergency Stop", host.id)}
-                                disabled={host.status !== "online" || loadingButtons.has(`${host.id}-Emergency Stop`)}
+                                onClick={() => handleAPIAction(t.emergencyStop, host.id)}
+                                disabled={host.status !== "online" || loadingButtons.has(`${host.id}-${t.emergencyStop}`)}
                                 className={`transition-all duration-200 ${
-                                  loadingButtons.has(`${host.id}-Emergency Stop`) ? 'opacity-75 scale-95' : ''
+                                  loadingButtons.has(`${host.id}-${t.emergencyStop}`) ? 'opacity-75 scale-95' : ''
                                 }`}
                               >
-                                {loadingButtons.has(`${host.id}-Emergency Stop`) ? (
+                                {loadingButtons.has(`${host.id}-${t.emergencyStop}`) ? (
                                   <div className="animate-spin h-4 w-4 mr-1 border-2 border-white border-t-transparent rounded-full" />
                                 ) : (
                                   <AlertTriangle className="h-4 w-4 mr-1" />
@@ -1907,7 +1947,7 @@ export function NetworkScanner() {
                       size="sm"
                       variant="outline"
                       onClick={() => setWebcamFlip(prev => ({ ...prev, horizontal: !prev.horizontal }))}
-                      title="Flip horizontally"
+                      title={t.flipHorizontally}
                     >
                       <FlipHorizontal className="h-4 w-4" />
                     </Button>
@@ -1915,7 +1955,7 @@ export function NetworkScanner() {
                       size="sm"
                       variant="outline"
                       onClick={() => setWebcamFlip(prev => ({ ...prev, vertical: !prev.vertical }))}
-                      title="Flip vertically"
+                      title={t.flipVertically}
                     >
                       <FlipVertical className="h-4 w-4" />
                     </Button>

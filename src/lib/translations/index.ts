@@ -131,6 +131,44 @@ export interface Translations {
   startBackgroundMode: string
   stopBackgroundMode: string
   backgroundModeHelp: string
+  
+  // Telegram Bot
+  telegram: string
+  telegramBotIntegration: string
+  telegramBotDescription: string
+  enableTelegramBot: string
+  botToken: string
+  enterBotToken: string
+  tokenSavedAndHidden: string
+  change: string
+  getBotTokenFromBotFather: string
+  registrationActive: string
+  startRegistration: string
+  stopRegistration: string
+  registeredUsers: string
+  botIsRunning: string
+  loading: string
+  testSystem: string
+  testTelegram: string
+  testSystemNotification: string
+  testTelegramNotification: string
+  testSystemNotificationBody: string
+  testTelegramNotificationBody: string
+  telegramNotifications: string
+  
+  // Additional UI elements
+  ssh: string
+  pause: string
+  resume: string
+  stop: string
+  emergencyStop: string
+  flipHorizontally: string
+  flipVertically: string
+  mainNetwork: string
+  guestNetwork: string
+  unknown: string
+  refresh: string
+  remove: string
 }
 
 export const translations: Record<string, Translations> = {

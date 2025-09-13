@@ -4,6 +4,8 @@
 //! used throughout the application.
 
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
 
 /// Application configuration constants
 pub const DEFAULT_TIMEOUT_SECONDS: u64 = 5;
@@ -45,6 +47,30 @@ impl Default for NotificationSettings {
     }
 }
 
+/// Telegram bot settings
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TelegramSettings {
+    /// Whether Telegram bot is enabled
+    pub enabled: bool,
+    /// Bot token (encrypted in config file)
+    pub bot_token: Option<String>,
+    /// Notification settings for Telegram
+    pub notifications: NotificationSettings,
+    /// Registered users
+    pub registered_users: Vec<crate::models::TelegramUser>,
+}
+
+impl Default for TelegramSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            bot_token: None,
+            notifications: NotificationSettings::default(),
+            registered_users: Vec::new(),
+        }
+    }
+}
+
 /// Application settings
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AppSettings {
@@ -54,6 +80,8 @@ pub struct AppSettings {
     pub auto_refresh_enabled: bool,
     /// Notification settings
     pub notifications: NotificationSettings,
+    /// Telegram bot settings
+    pub telegram: TelegramSettings,
     /// Theme preference
     pub theme: String,
     /// Language preference
@@ -66,8 +94,64 @@ impl Default for AppSettings {
             auto_refresh_interval: 3,
             auto_refresh_enabled: true,
             notifications: NotificationSettings::default(),
+            telegram: TelegramSettings::default(),
             theme: "system".to_string(),
             language: "en".to_string(),
         }
+    }
+}
+
+impl AppSettings {
+    /// Get the configuration file path
+    pub fn config_path() -> PathBuf {
+        let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+        path.push("moonraker-host-scanner");
+        path.push("config.json");
+        path
+    }
+
+    /// Load settings from file
+    pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
+        let path = Self::config_path();
+        
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+
+        let content = fs::read_to_string(&path)?;
+        
+        // Try to parse as AppSettings first
+        match serde_json::from_str::<AppSettings>(&content) {
+            Ok(settings) => Ok(settings),
+            Err(_) => {
+                // If parsing fails, try to migrate from old format
+                let mut value: serde_json::Value = serde_json::from_str(&content)?;
+                
+                // Add missing fields if they don't exist
+                if let Some(telegram) = value.get_mut("telegram") {
+                    if !telegram.get("registered_users").is_some() {
+                        telegram["registered_users"] = serde_json::Value::Array(vec![]);
+                    }
+                }
+                
+                // Parse the migrated value
+                let settings: AppSettings = serde_json::from_value(value)?;
+                Ok(settings)
+            }
+        }
+    }
+
+    /// Save settings to file
+    pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let path = Self::config_path();
+        
+        // Create directory if it doesn't exist
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let content = serde_json::to_string_pretty(self)?;
+        fs::write(&path, content)?;
+        Ok(())
     }
 }

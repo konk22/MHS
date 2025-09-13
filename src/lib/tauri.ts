@@ -46,7 +46,7 @@ export const tauriCommands = {
   getBackgroundMonitoringStatus: () => invokeTauri('get_background_monitoring_status_command'),
   
   // Telegram bot
-  startTelegramBot: (botToken: string) => invokeTauri('start_telegram_bot', { botToken }),
+  startTelegramBot: () => invokeTauri('start_telegram_bot'),
   stopTelegramBot: () => invokeTauri('stop_telegram_bot'),
   getTelegramBotStatus: () => invokeTauri('get_telegram_bot_status'),
   startTelegramRegistration: () => invokeTauri('start_telegram_registration'),
@@ -56,6 +56,12 @@ export const tauriCommands = {
   removeTelegramUser: (userId: number) => invokeTauri('remove_telegram_user', { userId }),
   getTelegramHosts: () => invokeTauri('get_telegram_hosts'),
   updateTelegramHosts: (hosts: any[]) => invokeTauri('update_telegram_hosts', { hosts }),
-  sendTelegramNotification: (title: string, body: string) => invokeTauri('send_telegram_notification', { title, body }),
-  updateTelegramUserNotifications: (userId: number, notificationsEnabled: boolean) => invokeTauri('update_telegram_user_notifications', { userId, notificationsEnabled })
+  sendTelegramNotification: (title: string, body: string, hostIp?: string) => invokeTauri('send_telegram_notification', { title, body, hostIp }),
+  updateTelegramUserNotifications: (userId: number, notificationsEnabled: boolean) => invokeTauri('update_telegram_user_notifications', { userId, notificationsEnabled }),
+  saveTelegramBotToken: (token: string) => invokeTauri('save_telegram_bot_token', { token }),
+  getTelegramBotToken: () => invokeTauri('get_telegram_bot_token'),
+  clearTelegramBotToken: () => invokeTauri('clear_telegram_bot_token'),
+  loadTelegramSettings: () => invokeTauri('load_telegram_settings'),
+  getTelegramRegistrationInfo: () => invokeTauri('get_telegram_registration_info'),
+  saveTelegramUsers: (users: any[]) => invokeTauri('save_telegram_users', { users })
 } as const

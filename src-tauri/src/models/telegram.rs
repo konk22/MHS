@@ -45,6 +45,22 @@ pub struct RegistrationState {
     pub is_active: bool,
     pub code: Option<String>,
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub attempts: u32,
+    pub max_attempts: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VideoRequestState {
+    pub is_active: bool,
+    pub user_id: i64,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmergencyStopRequestState {
+    pub is_active: bool,
+    pub user_id: i64,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl RegistrationState {
@@ -53,28 +69,22 @@ impl RegistrationState {
             is_active: false,
             code: None,
             expires_at: None,
+            attempts: 0,
+            max_attempts: 3,
         }
     }
 
     pub fn start_registration(&mut self) -> String {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-        use std::time::{SystemTime, UNIX_EPOCH};
-
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        use rand::Rng;
         
-        let mut hasher = DefaultHasher::new();
-        timestamp.hash(&mut hasher);
-        let hash = hasher.finish();
-        
-        let code = format!("{:06}", hash % 1000000);
+        // Generate a secure 6-digit code
+        let mut rng = rand::thread_rng();
+        let code = format!("{:06}", rng.gen_range(100000..=999999));
         
         self.is_active = true;
         self.code = Some(code.clone());
-        self.expires_at = Some(chrono::Utc::now() + chrono::Duration::seconds(60));
+        self.expires_at = Some(chrono::Utc::now() + chrono::Duration::seconds(300)); // 5 minutes
+        self.attempts = 0; // Reset attempts counter
         
         code
     }
@@ -87,9 +97,22 @@ impl RegistrationState {
         }
     }
 
-    pub fn verify_code(&self, input_code: &str) -> bool {
+    pub fn verify_code(&mut self, input_code: &str) -> bool {
+        if !self.is_active || self.is_expired() {
+            return false;
+        }
+        
+        if self.attempts >= self.max_attempts {
+            return false;
+        }
+        
         if let Some(code) = &self.code {
-            code == input_code
+            if code == input_code {
+                return true;
+            } else {
+                self.attempts += 1;
+                return false;
+            }
         } else {
             false
         }
@@ -98,6 +121,67 @@ impl RegistrationState {
     pub fn finish_registration(&mut self) {
         self.is_active = false;
         self.code = None;
+        self.expires_at = None;
+        self.attempts = 0;
+    }
+}
+
+impl VideoRequestState {
+    pub fn new() -> Self {
+        Self {
+            is_active: false,
+            user_id: 0,
+            expires_at: None,
+        }
+    }
+
+    pub fn start_video_request(&mut self, user_id: i64) {
+        self.is_active = true;
+        self.user_id = user_id;
+        self.expires_at = Some(chrono::Utc::now() + chrono::Duration::seconds(60));
+    }
+
+    pub fn is_expired(&self) -> bool {
+        if let Some(expires_at) = self.expires_at {
+            chrono::Utc::now() > expires_at
+        } else {
+            false
+        }
+    }
+
+    pub fn finish_video_request(&mut self) {
+        self.is_active = false;
+        self.user_id = 0;
+        self.expires_at = None;
+    }
+}
+
+impl EmergencyStopRequestState {
+    pub fn new() -> Self {
+        Self {
+            is_active: false,
+            user_id: 0,
+            expires_at: None,
+        }
+    }
+
+    pub fn start_emergency_stop_request(&mut self, user_id: i64) {
+        self.is_active = true;
+        self.user_id = user_id;
+        self.expires_at = Some(chrono::Utc::now() + chrono::Duration::seconds(60));
+    }
+
+    pub fn is_expired(&self) -> bool {
+        if let Some(expires_at) = self.expires_at {
+            chrono::Utc::now() > expires_at
+        } else {
+            false
+        }
+    }
+
+    pub fn finish_emergency_stop_request(&mut self) {
+        self.is_active = false;
+        self.user_id = 0;
         self.expires_at = None;
     }
 }
