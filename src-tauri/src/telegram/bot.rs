@@ -70,7 +70,7 @@ pub struct TelegramBot {
     is_running: Arc<AtomicBool>,
     task_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
     registered_users: Arc<Mutex<Vec<TelegramUser>>>,
-    registration_state: Arc<Mutex<RegistrationState>>,
+    _registration_state: Arc<Mutex<RegistrationState>>,
     video_request_state: Arc<Mutex<VideoRequestState>>,
     emergency_stop_request_state: Arc<Mutex<EmergencyStopRequestState>>,
     hosts: Arc<Mutex<Vec<crate::models::HostInfo>>>,
@@ -101,7 +101,7 @@ impl TelegramBot {
             is_running: Arc::new(AtomicBool::new(false)),
             task_handle: Arc::new(Mutex::new(None)),
             registered_users: Arc::new(Mutex::new(Vec::new())),
-            registration_state: Arc::new(Mutex::new(RegistrationState::new())),
+            _registration_state: Arc::new(Mutex::new(RegistrationState::new())),
             video_request_state: Arc::new(Mutex::new(VideoRequestState::new())),
             emergency_stop_request_state: Arc::new(Mutex::new(EmergencyStopRequestState::new())),
             hosts,
@@ -131,7 +131,7 @@ impl TelegramBot {
         let task_handle = self.task_handle.clone();
 
         let registered_users = self.registered_users.clone();
-        let registration_state = self.registration_state.clone();
+        let registration_state = self._registration_state.clone();
         let video_request_state = self.video_request_state.clone();
         let emergency_stop_request_state = self.emergency_stop_request_state.clone();
         let hosts = self.hosts.clone();
@@ -223,7 +223,7 @@ impl TelegramBot {
     }
 
     pub async fn start_registration(&self) -> Result<String, String> {
-        let mut reg_state = self.registration_state.lock().await;
+        let mut reg_state = self._registration_state.lock().await;
         if reg_state.is_active {
             return Err("Registration is already active".to_string());
         }
@@ -233,18 +233,18 @@ impl TelegramBot {
     }
 
     pub async fn stop_registration(&self) -> Result<(), String> {
-        let mut reg_state = self.registration_state.lock().await;
+        let mut reg_state = self._registration_state.lock().await;
         reg_state.finish_registration();
         Ok(())
     }
 
     pub async fn is_registration_active(&self) -> bool {
-        let reg_state = self.registration_state.lock().await;
+        let reg_state = self._registration_state.lock().await;
         reg_state.is_active && !reg_state.is_expired()
     }
 
     pub async fn get_registration_state(&self) -> crate::models::RegistrationState {
-        let reg_state = self.registration_state.lock().await;
+        let reg_state = self._registration_state.lock().await;
         reg_state.clone()
     }
 
@@ -394,7 +394,7 @@ async fn message_handler(
     bot: Bot, 
     msg: Message, 
     registered_users: Arc<Mutex<Vec<TelegramUser>>>,
-    registration_state: Arc<Mutex<RegistrationState>>,
+    _registration_state: Arc<Mutex<RegistrationState>>,
     _video_request_state: Arc<Mutex<VideoRequestState>>,
     _emergency_stop_request_state: Arc<Mutex<EmergencyStopRequestState>>,
     _hosts: Arc<Mutex<Vec<crate::models::HostInfo>>>,
@@ -430,19 +430,9 @@ async fn message_handler(
                                 .reply_markup(keyboard)
                                 .await?;
                         } else {
-                            // Handle registration for unregistered users
-                            let mut reg_state = registration_state.lock().await;
-                            
-                            if reg_state.is_active && !reg_state.is_expired() {
-                                bot.send_message(msg.chat.id, "⏳ Регистрация уже активна. Введите код подтверждения.")
-                                    .await?;
-                            } else {
-                                // Start new registration
-                                let code = reg_state.start_registration();
-                                bot.send_message(msg.chat.id, format!("🔐 Код регистрации: `{}`\n\n⏰ Код действителен 5 минут\\.", code))
-                                    .parse_mode(ParseMode::MarkdownV2)
-                                    .await?;
-                            }
+                            // Ignore unregistered users - don't send any response
+                            // This prevents unauthorized access and code generation
+                            return Ok(());
                         }
                     }
                 }
@@ -457,9 +447,10 @@ async fn message_handler(
                 }
             }
         } else {
-            // Handle registration code or ignore unregistered users
+            // Handle text messages
             if !is_registered {
-                let mut reg_state = registration_state.lock().await;
+                // Check if registration is active and user is trying to register
+                let mut reg_state = _registration_state.lock().await;
                 if reg_state.is_active && !reg_state.is_expired() {
                     if reg_state.verify_code(text) {
                         // Registration successful
@@ -470,15 +461,17 @@ async fn message_handler(
                             Some(user) => user,
                             None => return Ok(()), // Ignore messages without sender
                         };
-                        let user = TelegramUser::from_teloxide_user(
+                        let user = crate::models::TelegramUser::from_teloxide_user(
                             user_id,
                             from_user.username.clone(),
                             from_user.first_name.clone(),
                             from_user.last_name.clone(),
                         );
                         
+                        // Add user to registered users
                         let mut users = registered_users.lock().await;
                         users.push(user.clone());
+                        drop(users); // Release the lock
                         
                         // Show main menu after successful registration
                         let keyboard = InlineKeyboardMarkup::new(vec![
@@ -487,14 +480,13 @@ async fn message_handler(
                             vec![InlineKeyboardButton::callback("❓ Помощь", "help")],
                         ]);
 
-                        bot.send_message(msg.chat.id, format!("✅ Регистрация успешна\\! Добро пожаловать, {}! Выберите действие:", user.display_name()))
-                            .parse_mode(ParseMode::MarkdownV2)
+                        let welcome_message = format!("✅ Регистрация успешна! Добро пожаловать, {}! Выберите действие:", user.display_name());
+                        bot.send_message(msg.chat.id, welcome_message)
                             .reply_markup(keyboard)
                             .await?;
                         
                         // Save users to file
-                        let users_to_save = users.clone();
-                        drop(users); // Release the lock before calling save
+                        let users_to_save = registered_users.lock().await.clone();
                         if let Err(e) = save_users_to_file(&users_to_save).await {
                             println!("Failed to save users to file: {}", e);
                         }
@@ -505,20 +497,21 @@ async fn message_handler(
                         // Check if max attempts reached
                         if reg_state.attempts >= reg_state.max_attempts {
                             reg_state.finish_registration();
-                            bot.send_message(msg.chat.id, "Too many failed attempts. Registration has been cancelled.")
+                            bot.send_message(msg.chat.id, "❌ Слишком много неудачных попыток\\. Регистрация отменена\\.")
+                                .parse_mode(ParseMode::MarkdownV2)
                                 .await?;
                         } else {
                             let remaining = reg_state.max_attempts - reg_state.attempts;
-                            bot.send_message(msg.chat.id, format!("Invalid code. {} attempts remaining.", remaining))
+                            bot.send_message(msg.chat.id, format!("❌ Неверный код\\. Осталось попыток: {}", remaining))
                                 .await?;
                         }
                     }
                 } else {
-                    // Ignore unregistered users - don't send any response
+                    // Registration not active or expired, ignore
                     return Ok(());
                 }
             } else {
-                // User is registered - show main menu
+                // Registered user sent text message, show main menu
                 let keyboard = InlineKeyboardMarkup::new(vec![
                     vec![InlineKeyboardButton::callback("📋 Список хостов", "hosts_list")],
                     vec![InlineKeyboardButton::callback("⚙️ Настройки", "settings")],
@@ -695,9 +688,7 @@ async fn callback_handler(
     };
 
     if !is_registered {
-        bot.answer_callback_query(q.id)
-            .text("❌ You need to register first. Use /start command.")
-            .await?;
+        // Ignore callback queries from unregistered users
         return Ok(());
     }
 
