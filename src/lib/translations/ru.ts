@@ -212,6 +212,7 @@ export const ru = {
   // Additional UI elements
   flipHorizontally: "Отразить по горизонтали",
   flipVertically: "Отразить по вертикали",
+  unknown: "Неизвестно",
   refresh: "Обновить",
   remove: "Удалить",
 }

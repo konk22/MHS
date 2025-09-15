@@ -45,6 +45,7 @@ export const en = {
   configureNetworkScanning: "Configure network scanning and preferences",
   network: "Network",
   notifications: "Notifications",
+  backgroundMode: "Background Mode",
   about: "About",
   language: "Language",
 
@@ -210,6 +211,7 @@ export const en = {
   // Additional UI elements
   flipHorizontally: "Flip horizontally",
   flipVertically: "Flip vertically",
+  unknown: "Unknown",
   refresh: "Refresh",
   remove: "Remove",
 }
