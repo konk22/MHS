@@ -70,10 +70,9 @@ pub async fn scan_host(ip: &str) -> Option<HostInfo> {
                 });
             }
             Err(_) => {
-                // If this is not the last attempt, wait with exponential backoff and try again
+                // If this is not the last attempt, wait a bit and try again
                 if attempt < API_SCAN_RETRY_COUNT - 1 {
-                    let delay_ms = 100 * (2_u64.pow(attempt)); // 100ms, 200ms, 400ms
-                    tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
                     continue;
                 }
             }
@@ -151,10 +150,9 @@ pub async fn check_host_status(ip: &str) -> HostStatusResponse {
                 };
             }
             Err(_) => {
-                // If this is not the last attempt, wait with exponential backoff and try again
+                // If this is not the last attempt, wait a bit and try again
                 if attempt < API_SCAN_RETRY_COUNT - 1 {
-                    let delay_ms = 100 * (2_u64.pow(attempt)); // 100ms, 200ms, 400ms
-                    tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
                     continue;
                 }
             }
@@ -192,16 +190,15 @@ pub async fn scan_network(subnets: Vec<SubnetConfig>) -> MoonrakerResult<ScanRes
         });
     }
 
-    let mut total_ips = 0u32;
+    let mut total_ips = 0;
     let mut ip_subnet_map = HashMap::new();
-    let start_time = std::time::Instant::now();
     
     // Count total IP addresses and build IP list
     let mut all_ips = Vec::new();
     for subnet in &enabled_subnets {
         match generate_ip_range(&subnet.range) {
             Ok(ips) => {
-                total_ips += ips.len() as u32;
+                total_ips += ips.len();
                 for ip in ips {
                     ip_subnet_map.insert(ip.clone(), subnet.range.clone());
                     all_ips.push(ip);
@@ -249,8 +246,8 @@ pub async fn scan_network(subnets: Vec<SubnetConfig>) -> MoonrakerResult<ScanRes
 
     Ok(ScanResult {
         hosts: all_hosts,
-        total_scanned: total_ips,
+        total_scanned: total_ips as u32,
         hosts_found: online_hosts,
-        scan_duration_ms: start_time.elapsed().as_millis() as u64,
+        scan_duration_ms: 0, // TODO: Calculate actual scan duration
     })
 }

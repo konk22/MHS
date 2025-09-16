@@ -18,7 +18,7 @@ export function useNotifications() {
     }
     
     // Check if we have too many failed attempts (host is effectively offline)
-    if (host.failed_attempts && host.failed_attempts >= 3) {
+    if (host.failed_attempts && host.failed_attempts >= 5) {
       return 'offline'
     }
     

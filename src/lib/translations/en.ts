@@ -45,7 +45,6 @@ export const en = {
   configureNetworkScanning: "Configure network scanning and preferences",
   network: "Network",
   notifications: "Notifications",
-  backgroundMode: "Background Mode",
   about: "About",
   language: "Language",
 
@@ -69,7 +68,7 @@ export const en = {
   checking: "Checking",
 
   // About Tab
-  version: "Version 0.0.51",
+  version: "Version 0.0.50",
   powerfulNetworkTool: "Network tool for discovering and managing 3D printers",
 
   // Language Tab
@@ -211,7 +210,6 @@ export const en = {
   // Additional UI elements
   flipHorizontally: "Flip horizontally",
   flipVertically: "Flip vertically",
-  unknown: "Unknown",
   refresh: "Refresh",
   remove: "Remove",
 }

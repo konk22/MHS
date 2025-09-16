@@ -70,7 +70,7 @@ export const ru = {
   checking: "Проверка",
 
   // About Tab
-  version: "Версия 0.0.51",
+  version: "Версия 0.0.50",
   powerfulNetworkTool: "Сетевой инструмент для поиска и управления 3D принтерами",
 
   // Language Tab
@@ -212,7 +212,6 @@ export const ru = {
   // Additional UI elements
   flipHorizontally: "Отразить по горизонтали",
   flipVertically: "Отразить по вертикали",
-  unknown: "Неизвестно",
   refresh: "Обновить",
   remove: "Удалить",
 }

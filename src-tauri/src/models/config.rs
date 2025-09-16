@@ -17,7 +17,7 @@ pub const WEBCAM_PORT: u16 = 8080;
 pub const PORT_SCAN_CONCURRENCY: usize = 200; // Maximum concurrent port checks
 pub const API_SCAN_CONCURRENCY: usize = 50;   // Maximum concurrent API requests
 pub const PORT_SCAN_RETRY_COUNT: u32 = 1;     // Number of retry attempts for ports
-pub const API_SCAN_RETRY_COUNT: u32 = 3;      // Number of retry attempts for API (reduced false positives)
+pub const API_SCAN_RETRY_COUNT: u32 = 1;      // Number of retry attempts for API (fast offline detection)
 pub const SLOW_NETWORK_TIMEOUT_MS: u64 = 800; // Timeout for slow networks (reduced)
 
 /// Notification settings for different printer states

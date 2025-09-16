@@ -157,8 +157,15 @@ export interface Translations {
   telegramNotifications: string
   
   // Additional UI elements
+  ssh: string
+  pause: string
+  resume: string
+  stop: string
+  emergencyStop: string
   flipHorizontally: string
   flipVertically: string
+  mainNetwork: string
+  guestNetwork: string
   unknown: string
   refresh: string
   remove: string

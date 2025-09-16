@@ -804,39 +804,31 @@ export function NetworkScanner() {
               print_info: printInfo?.print_info
             })
           } else {
-            // Хост не ответил - увеличиваем счетчик неудачных попыток
-            const currentFailedAttempts = host.failed_attempts || 0
-            const newFailedAttempts = currentFailedAttempts + 1
-            const shouldMarkOffline = newFailedAttempts >= 5
-
+            // Хост не ответил - помечаем как offline
             updatedHosts.push({
               ...host,
               // Сохраняем пользовательские данные
               hostname: host.hostname, // Сохраняем пользовательское имя
               original_hostname: host.original_hostname, // Сохраняем оригинальное имя
-              // Помечаем как offline только после 5 неудачных попыток
-              status: shouldMarkOffline ? 'offline' : 'online',
-              device_status: shouldMarkOffline ? 'offline' : host.device_status,
+              // Помечаем как offline
+              status: 'offline',
+              device_status: 'offline',
               last_seen: new Date().toISOString(),
-              failed_attempts: newFailedAttempts
+              failed_attempts: (host.failed_attempts || 0) + 1
             })
           }
         } catch (error) {
-          // В случае ошибки увеличиваем счетчик неудачных попыток
-          const currentFailedAttempts = host.failed_attempts || 0
-          const newFailedAttempts = currentFailedAttempts + 1
-          const shouldMarkOffline = newFailedAttempts >= 5
-
+          // В случае ошибки помечаем как offline
           updatedHosts.push({
             ...host,
             // Сохраняем пользовательские данные
             hostname: host.hostname, // Сохраняем пользовательское имя
             original_hostname: host.original_hostname, // Сохраняем оригинальное имя
-            // Помечаем как offline только после 5 неудачных попыток
-            status: shouldMarkOffline ? 'offline' : 'online',
-            device_status: shouldMarkOffline ? 'offline' : host.device_status,
+            // Помечаем как offline
+            status: 'offline',
+            device_status: 'offline',
             last_seen: new Date().toISOString(),
-            failed_attempts: newFailedAttempts
+            failed_attempts: (host.failed_attempts || 0) + 1
           })
         }
       }

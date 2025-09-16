@@ -45,7 +45,6 @@ export const de = {
   configureNetworkScanning: "Netzwerk-Scanning und Präferenzen konfigurieren",
   network: "Netzwerk",
   notifications: "Benachrichtigungen",
-  backgroundMode: "Hintergrundmodus",
   about: "Über",
   language: "Sprache",
 
@@ -212,7 +211,6 @@ export const de = {
   // Additional UI elements
   flipHorizontally: "Horizontal spiegeln",
   flipVertically: "Vertikal spiegeln",
-  unknown: "Unbekannt",
   refresh: "Aktualisieren",
   remove: "Entfernen",
 }
