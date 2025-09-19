@@ -5,9 +5,9 @@ import './globals.css'
 import { DisableContextMenu } from '@/components/disable-context-menu'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.app',
+  title: 'Moonraker Host Scanner',
+  description: 'Network scanner and management tool for Moonraker-enabled 3D printers',
+  generator: 'Next.js + Tauri',
 }
 
 export default function RootLayout({

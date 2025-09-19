@@ -23,6 +23,27 @@ export const ru = {
   scanningAPI: "Проверка...",
   startScan: "Начать Сканирование",
 
+  // Batch Tasks
+  batchTasks: "Пакетные Задания",
+  batchTasksDescription: "Выполнение операций на нескольких принтерах одновременно",
+  openBatchTasks: "Создать группу",
+  sendBatchTask: "Отправить пакетное задание",
+  saveGroup: "Сохранить группу",
+  groupName: "Название группы",
+  enterGroupName: "Введите название группы",
+  existingGroups: "Существующие группы",
+  selectHosts: "Выберите хосты для группы",
+  noGroups: "Группы не созданы",
+  selectGcodeFile: "Выберите G-code файл",
+  noFileSelected: "Файл не выбран",
+  launch: "Запустить",
+  checkingHosts: "Проверка хостов...",
+  hostsNotReady: "Хосты не готовы",
+  hostsNotReadyMessage: "Не все принтеры в группе находятся в статусе Standby. Пожалуйста, проверьте и подготовьте принтеры к печати.",
+  uploadingFiles: "Загрузка файлов...",
+  uploadSuccess: "Файлы успешно загружены",
+  uploadError: "Ошибка загрузки файлов",
+
   // Table Headers
   actions: "Действия",
   hostname: "Имя Хоста",
@@ -212,6 +233,7 @@ export const ru = {
   // Additional UI elements
   flipHorizontally: "Отразить по горизонтали",
   flipVertically: "Отразить по вертикали",
+  unknown: "Неизвестно",
   refresh: "Обновить",
   remove: "Удалить",
 }

@@ -42,7 +42,7 @@ export function useHostStatus() {
           } else {
             const currentFailedAttempts = host.failed_attempts || 0
             const newFailedAttempts = currentFailedAttempts + 1
-            const shouldMarkOffline = newFailedAttempts >= 5
+            const shouldMarkOffline = newFailedAttempts >= 8
 
             return {
               ...host,

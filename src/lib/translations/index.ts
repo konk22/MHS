@@ -27,6 +27,27 @@ export interface Translations {
   scanningAPI: string
   startScan: string
 
+  // Batch Tasks
+  batchTasks: string
+  batchTasksDescription: string
+  openBatchTasks: string
+  sendBatchTask: string
+  saveGroup: string
+  groupName: string
+  enterGroupName: string
+  existingGroups: string
+  selectHosts: string
+  noGroups: string
+  selectGcodeFile: string
+  noFileSelected: string
+  launch: string
+  checkingHosts: string
+  hostsNotReady: string
+  hostsNotReadyMessage: string
+  uploadingFiles: string
+  uploadSuccess: string
+  uploadError: string
+
   // Table Headers
   actions: string
   hostname: string
@@ -157,15 +178,8 @@ export interface Translations {
   telegramNotifications: string
   
   // Additional UI elements
-  ssh: string
-  pause: string
-  resume: string
-  stop: string
-  emergencyStop: string
   flipHorizontally: string
   flipVertically: string
-  mainNetwork: string
-  guestNetwork: string
   unknown: string
   refresh: string
   remove: string

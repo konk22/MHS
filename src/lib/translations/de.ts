@@ -23,6 +23,27 @@ export const de = {
   scanningAPI: "Prüfe...",
   startScan: "Scan starten",
 
+  // Batch Tasks
+  batchTasks: "Batch-Aufgaben",
+  batchTasksDescription: "Operationen auf mehreren Druckern gleichzeitig ausführen",
+  openBatchTasks: "Gruppe erstellen",
+  sendBatchTask: "Batch-Aufgabe senden",
+  saveGroup: "Gruppe speichern",
+  groupName: "Gruppenname",
+  enterGroupName: "Gruppenname eingeben",
+  existingGroups: "Vorhandene Gruppen",
+  selectHosts: "Hosts für Gruppe auswählen",
+  noGroups: "Keine Gruppen erstellt",
+  selectGcodeFile: "G-code-Datei auswählen",
+  noFileSelected: "Keine Datei ausgewählt",
+  launch: "Starten",
+  checkingHosts: "Hosts werden überprüft...",
+  hostsNotReady: "Hosts nicht bereit",
+  hostsNotReadyMessage: "Nicht alle Drucker in der Gruppe befinden sich im Standby-Status. Bitte überprüfen und bereiten Sie die Drucker für den Druck vor.",
+  uploadingFiles: "Dateien werden hochgeladen...",
+  uploadSuccess: "Dateien erfolgreich hochgeladen",
+  uploadError: "Fehler beim Hochladen der Dateien",
+
   // Table Headers
   actions: "Aktionen",
   hostname: "Hostname",
@@ -45,6 +66,7 @@ export const de = {
   configureNetworkScanning: "Netzwerk-Scanning und Präferenzen konfigurieren",
   network: "Netzwerk",
   notifications: "Benachrichtigungen",
+  backgroundMode: "Hintergrundmodus",
   about: "Über",
   language: "Sprache",
 
@@ -211,6 +233,7 @@ export const de = {
   // Additional UI elements
   flipHorizontally: "Horizontal spiegeln",
   flipVertically: "Vertikal spiegeln",
+  unknown: "Unbekannt",
   refresh: "Aktualisieren",
   remove: "Entfernen",
 }

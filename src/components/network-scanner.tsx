@@ -17,9 +17,8 @@
 
 "use client"
 
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { useEffect, useState } from "react"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -60,10 +59,13 @@ import {
   ExternalLink,
   RotateCw,
   ChevronUp,
+  Layers,
+  Send,
 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n"
 import { useUpdater } from "@/hooks/use-updater"
 import { useTelegramBot } from "@/hooks/useTelegramBot"
+import { useSmartNotifications } from "@/hooks/useSmartNotifications"
 
 /**
  * Network subnet configuration for scanning
@@ -125,6 +127,16 @@ interface MoonrakerServerInfo {
     api_version: number[]
     api_versions: Record<string, number[]>
   }
+}
+
+/**
+ * Host group for batch operations
+ */
+interface HostGroup {
+  id: string
+  name: string
+  hostIds: string[]
+  createdAt: string
 }
 
 interface MoonrakerPrinterInfo {
@@ -216,6 +228,15 @@ export function NetworkScanner() {
     open: false,
     host: null,
   })
+  const [batchTasksDialog, setBatchTasksDialog] = useState(false)
+  const [sendBatchTaskDialog, setSendBatchTaskDialog] = useState(false)
+  const [selectedGcodeFile, setSelectedGcodeFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<Record<string, boolean>>({})
+  const [hostGroups, setHostGroups] = useState<HostGroup[]>([])
+  const [newGroupName, setNewGroupName] = useState("")
+  const [selectedHostsForGroup, setSelectedHostsForGroup] = useState<string[]>([])
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [currentWebcamUrlIndex, setCurrentWebcamUrlIndex] = useState(0)
   const [webcamRotation, setWebcamRotation] = useState(0)
   const [webcamFlip, setWebcamFlip] = useState({ horizontal: false, vertical: false })
@@ -242,6 +263,13 @@ export function NetworkScanner() {
     saveToken,
     clearToken
   } = useTelegramBot(settings.telegram.enabled)
+  
+  const { 
+    getPrinterStatus: smartGetPrinterStatus,
+    checkStatusChangeAndNotify: smartCheckStatusChangeAndNotify,
+    resetHostTimeout,
+    getHostNotificationState
+  } = useSmartNotifications()
 
   // Tauri API functions
   const invokeTauri = async (command: string, args?: any) => {
@@ -408,6 +436,30 @@ export function NetworkScanner() {
   useEffect(() => {
     localStorage.setItem('networkScanner_hosts', JSON.stringify(hosts))
   }, [hosts])
+
+  // Load host groups from localStorage on component mount
+  useEffect(() => {
+    const savedGroups = localStorage.getItem('networkScanner_hostGroups')
+    if (savedGroups) {
+      try {
+        const parsedGroups = JSON.parse(savedGroups)
+        if (Array.isArray(parsedGroups)) {
+          setHostGroups(parsedGroups)
+        }
+      } catch (error) {
+        console.error('Failed to load host groups:', error)
+      }
+    }
+  }, [])
+
+  // Save host groups to localStorage (only when groups actually change)
+  useEffect(() => {
+    // Don't save on initial mount with empty array
+    if (hostGroups.length > 0 || localStorage.getItem('networkScanner_hostGroups') !== null) {
+      console.log('Saving host groups to localStorage:', hostGroups)
+      localStorage.setItem('networkScanner_hostGroups', JSON.stringify(hostGroups))
+    }
+  }, [hostGroups])
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("networkScanner_theme")
@@ -881,86 +933,40 @@ export function NetworkScanner() {
    * @returns Status string for display
    */
   const getPrinterStatus = (host: HostInfo): string => {
-    console.log('getPrinterStatus called for host:', host.hostname, {
-      status: host.status,
-      klippy_state: host.klippy_state,
-      device_status: host.device_status,
-      printer_flags: host.printer_flags
-    });
-    
-    // First check if host is marked as offline
-    if (host.status === 'offline') {
-      console.log('Host is offline:', host.hostname);
-      return 'offline'
-    }
-    
-    // Check if Klippy is completely disconnected (not just in error state)
-    if (host.klippy_state === 'disconnected') {
-      return 'offline'
-    }
-    
-    // If no printer flags, check if we have any device status
-    if (!host.printer_flags) {
-      if (host.device_status === 'offline' || host.device_status === 'klippy_disconnected') {
-        return 'offline'
-      }
-      // If Klippy is in error state but host responds, show error status
-      if (host.klippy_state === 'error') {
-        return 'error'
-      }
-      return 'standby'
-    }
-    
-    const flags = host.printer_flags
-    
-    // Priority order: cancelling > error > paused > printing > ready > standby
-    if (flags.cancelling) {
-      return 'cancelling'
-    }
-    if (flags.error) {
-      return 'error'
-    }
-    if (flags.paused) {
-      return 'paused'
-    }
-    if (flags.printing) {
-      return 'printing'
-    }
-    if (flags.ready) {
-      console.log('Host is ready (standby):', host.hostname);
-      return 'standby'
-    }
-    
-    console.log('Host is standby (default):', host.hostname);
-    return 'standby'
+    return smartGetPrinterStatus(host)
   }
 
   /**
-   * Checks for status changes and sends system notifications
+   * Checks for status changes and sends system notifications with smart deduplication
    * @param oldHost - Previous host state
    * @param newHost - Current host state
    */
   const checkStatusChangeAndNotify = (oldHost: HostInfo, newHost: HostInfo) => {
+    // Get current settings to ensure we have the latest notification preferences
+    const currentSettings = JSON.parse(localStorage.getItem('networkScanner_settings') || '{}')
+    
+    // Ensure telegram.notifications exists with default values
+    if (currentSettings.telegram && !currentSettings.telegram.notifications) {
+      currentSettings.telegram.notifications = {
+        printing: true,
+        paused: true,
+        cancelling: true,
+        error: true,
+        standby: false,
+        offline: true,
+      }
+    }
+    
+    const notifications = currentSettings.notifications || settings.notifications
+    
+    // Use smart notification system
+    smartCheckStatusChangeAndNotify(oldHost, newHost, hosts, notifications, t)
+    
+    // Handle Telegram notifications separately (they have their own logic)
     const oldStatus = getPrinterStatus(oldHost)
     const newStatus = getPrinterStatus(newHost)
     
     if (oldStatus !== newStatus) {
-      // Get current settings to ensure we have the latest notification preferences
-      const currentSettings = JSON.parse(localStorage.getItem('networkScanner_settings') || '{}')
-      
-      // Ensure telegram.notifications exists with default values
-      if (currentSettings.telegram && !currentSettings.telegram.notifications) {
-        currentSettings.telegram.notifications = {
-          printing: true,
-          paused: true,
-          cancelling: true,
-          error: true,
-          standby: false,
-          offline: true,
-        }
-      }
-      
-      const notifications = currentSettings.notifications || settings.notifications
       const telegramNotifications = currentSettings.telegram?.notifications || {
         printing: true,
         paused: true,
@@ -970,23 +976,10 @@ export function NetworkScanner() {
         offline: true,
       }
       
-      // Check if notifications are enabled for this status
-      const statusKey = newStatus as keyof typeof notifications
-      const systemNotificationEnabled = notifications[statusKey];
+      // Send Telegram notification if enabled
+      const statusKey = newStatus as keyof typeof telegramNotifications
       const telegramNotificationEnabled = telegramNotifications[statusKey];
       
-      // Send system notification if enabled
-      if (systemNotificationEnabled) {
-        const title = `${t.networkScanner} - ${oldHost.hostname}`
-        const body = `${t.status}: ${t[statusKey as keyof typeof t] || newStatus}`
-        
-        // Send system notification
-        invokeTauri('send_system_notification_command', { title, body }).catch(error => {
-          console.error('Failed to send system notification:', error);
-        });
-      }
-      
-      // Send Telegram notification if enabled
       if (telegramNotificationEnabled && currentSettings.telegram?.enabled) {
         const title = `${t.networkScanner} - ${oldHost.hostname}`
         const body = `${t.status}: ${t[statusKey as keyof typeof t] || newStatus}`
@@ -1038,6 +1031,141 @@ export function NetworkScanner() {
         return <Moon className="h-4 w-4" />
       case "system":
         return <Monitor className="h-4 w-4" />
+    }
+  }
+
+  // Group management functions
+  const handleSaveGroup = () => {
+    if (!newGroupName.trim() || selectedHostsForGroup.length === 0) return
+
+    const newGroup: HostGroup = {
+      id: Date.now().toString(),
+      name: newGroupName.trim(),
+      hostIds: selectedHostsForGroup,
+      createdAt: new Date().toISOString()
+    }
+
+    console.log('Creating new group:', newGroup)
+    setHostGroups(prev => {
+      const updated = [...prev, newGroup]
+      console.log('Updated host groups:', updated)
+      return updated
+    })
+    setNewGroupName("")
+    setSelectedHostsForGroup([])
+  }
+
+  const handleDeleteGroup = (groupId: string) => {
+    setHostGroups(prev => prev.filter(g => g.id !== groupId))
+  }
+
+  const handleEditGroupName = (groupId: string, newName: string) => {
+    setHostGroups(prev => prev.map(g => 
+      g.id === groupId ? { ...g, name: newName } : g
+    ))
+  }
+
+  const handleHostSelectionChange = (hostId: string, checked: boolean) => {
+    setSelectedHostsForGroup(prev => 
+      checked 
+        ? [...prev, hostId]
+        : prev.filter(id => id !== hostId)
+    )
+  }
+
+  // Batch task functions
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file && file.name.toLowerCase().endsWith('.gcode')) {
+      setSelectedGcodeFile(file)
+    } else {
+      alert('Please select a .gcode file')
+    }
+  }
+
+  const checkHostsStatus = async (group: HostGroup): Promise<boolean> => {
+    const groupHosts = hosts.filter(host => group.hostIds.includes(host.id))
+    
+    for (const host of groupHosts) {
+      try {
+        const result = await invokeTauri('check_host_status_command', { ip: host.ip_address })
+        if (!result.success || getPrinterStatus({ ...host, ...result }) !== 'standby') {
+          return false
+        }
+      } catch (error) {
+        console.error(`Failed to check status for host ${host.hostname}:`, error)
+        return false
+      }
+    }
+    
+    return true
+  }
+
+  const uploadFileToHost = async (host: HostInfo, file: File): Promise<boolean> => {
+    try {
+      // Create FormData for file upload
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('print', 'true')
+      
+      // Upload file using fetch
+      const response = await fetch(`http://${host.ip_address}:7125/server/files/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+      
+      return response.ok
+    } catch (error) {
+      console.error(`Failed to upload file to host ${host.hostname}:`, error)
+      return false
+    }
+  }
+
+  const handleLaunchBatchTask = async (group: HostGroup) => {
+    if (!selectedGcodeFile) {
+      alert(t.noFileSelected)
+      return
+    }
+
+    setIsUploading(true)
+    setUploadProgress({})
+
+    try {
+      // Check if all hosts are in standby status
+      const allHostsReady = await checkHostsStatus(group)
+      
+      if (!allHostsReady) {
+        alert(t.hostsNotReadyMessage)
+        setIsUploading(false)
+        return
+      }
+
+      // Upload file to all hosts in the group
+      const groupHosts = hosts.filter(host => group.hostIds.includes(host.id))
+      const uploadPromises = groupHosts.map(async (host) => {
+        setUploadProgress(prev => ({ ...prev, [host.id]: true }))
+        
+        const success = await uploadFileToHost(host, selectedGcodeFile)
+        
+        setUploadProgress(prev => ({ ...prev, [host.id]: false }))
+        return { host, success }
+      })
+
+      const results = await Promise.all(uploadPromises)
+      const failedUploads = results.filter(result => !result.success)
+      
+      if (failedUploads.length === 0) {
+        alert(t.uploadSuccess)
+      } else {
+        alert(`${t.uploadError}: ${failedUploads.map(r => r.host.hostname).join(', ')}`)
+      }
+      
+    } catch (error) {
+      console.error('Batch task failed:', error)
+      alert(t.uploadError)
+    } finally {
+      setIsUploading(false)
+      setUploadProgress({})
     }
   }
 
@@ -1673,33 +1801,53 @@ export function NetworkScanner() {
 
         
 
-        {/* Scan Controls */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t.networkScan}</CardTitle>
-            <CardDescription>{t.scanConfiguredSubnet}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4 flex-wrap">
-                              <Button onClick={() => handleScan()} disabled={isScanning} className="bg-primary hover:bg-primary/90">
-                {isScanning ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    {t.scanning}
-                  </>
-                ) : (
-                  <>
-                    <Wifi className="h-4 w-4 mr-2" />
-                    {t.startScan}
-                  </>
-                )}
-              </Button>
+        {/* Scan Controls and Batch Tasks */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Scan Controls */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.networkScan}</CardTitle>
+              <CardDescription>{t.scanConfiguredSubnet}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4 flex-wrap">
+                <Button onClick={() => handleScan()} disabled={isScanning} className="bg-primary hover:bg-primary/90">
+                  {isScanning ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      {t.scanning}
+                    </>
+                  ) : (
+                    <>
+                      <Wifi className="h-4 w-4 mr-2" />
+                      {t.startScan}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-            </div>
-            
-
-          </CardContent>
-        </Card>
+          {/* Batch Tasks */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.batchTasks}</CardTitle>
+              <CardDescription>{t.batchTasksDescription}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4 flex-wrap">
+                <Button onClick={() => setBatchTasksDialog(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Layers className="h-4 w-4 mr-2" />
+                  {t.openBatchTasks}
+                </Button>
+                <Button onClick={() => setSendBatchTaskDialog(true)} className="bg-primary hover:bg-primary/90">
+                  <Send className="h-4 w-4 mr-2" />
+                  {t.sendBatchTask}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Hosts Table */}
         <Card>
@@ -1759,7 +1907,7 @@ export function NetworkScanner() {
                           {host.ip_address}
                         </Button>
                       </TableCell>
-                                              <TableCell>{getStatusBadge(getPrinterStatus(host), host)}</TableCell>
+                      <TableCell>{getStatusBadge(getPrinterStatus(host), host)}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -2011,6 +2159,235 @@ export function NetworkScanner() {
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Tasks Dialog */}
+      <Dialog open={batchTasksDialog} onOpenChange={setBatchTasksDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t.batchTasks}</DialogTitle>
+            <DialogDescription>
+              {t.batchTasksDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-6">
+            {/* Create New Group Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Input
+                  placeholder={t.enterGroupName}
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={handleSaveGroup}
+                  disabled={!newGroupName.trim() || selectedHostsForGroup.length === 0}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {t.saveGroup}
+                </Button>
+              </div>
+            </div>
+
+            {/* Existing Groups Section */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">{t.existingGroups}</h3>
+              {hostGroups.length === 0 ? (
+                <p className="text-gray-500 text-sm">{t.noGroups}</p>
+              ) : (
+                <div className="space-y-2">
+                  {hostGroups.map((group) => (
+                    <div key={group.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                      <Input
+                        value={group.name}
+                        onChange={(e) => handleEditGroupName(group.id, e.target.value)}
+                        className="flex-1"
+                      />
+                      <span className="text-sm text-gray-500">
+                        {group.hostIds.length} {group.hostIds.length === 1 ? 'host' : 'hosts'}
+                      </span>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteGroup(group.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Host Selection Section */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">{t.selectHosts}</h3>
+              {hosts.length === 0 ? (
+                <p className="text-gray-500 text-sm">No hosts available</p>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {hosts.map((host) => (
+                    <div key={host.id} className="flex items-center gap-3 p-2 border rounded">
+                      <Checkbox
+                        checked={selectedHostsForGroup.includes(host.id)}
+                        onCheckedChange={(checked) => 
+                          handleHostSelectionChange(host.id, checked as boolean)
+                        }
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">{host.hostname}</div>
+                        <div className="text-sm text-gray-500">{host.ip_address}</div>
+                      </div>
+                      <div className={`px-2 py-1 rounded text-xs ${
+                        host.status === 'online' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {host.status}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+        {/* Send Batch Task Dialog */}
+        <Dialog open={sendBatchTaskDialog} onOpenChange={setSendBatchTaskDialog}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>{t.sendBatchTask}</DialogTitle>
+            <DialogDescription>
+              {t.batchTasksDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-6 overflow-y-auto max-h-[60vh]">
+            {/* File Selection Section */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">{t.selectGcodeFile}</h3>
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  accept=".gcode"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="gcode-file-input"
+                />
+                <label
+                  htmlFor="gcode-file-input"
+                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 w-fit"
+                >
+                  <Send className="h-4 w-4" />
+                  {t.selectGcodeFile}
+                </label>
+                {selectedGcodeFile && (
+                  <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg max-w-full">
+                    <span className="text-green-600 text-lg flex-shrink-0">✓</span>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <p className="text-sm font-medium text-green-800 truncate">
+                        {selectedGcodeFile.name}
+                      </p>
+                      <p className="text-xs text-green-600">
+                        {(selectedGcodeFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedGcodeFile(null)}
+                      className="text-green-600 hover:text-green-700 hover:bg-green-100 flex-shrink-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Groups Section */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">{t.existingGroups}</h3>
+              {hostGroups.length === 0 ? (
+                <p className="text-gray-500 text-sm">{t.noGroups}</p>
+              ) : (
+                <div className="space-y-3">
+                  {hostGroups.map((group) => {
+                    const groupHosts = hosts.filter(host => group.hostIds.includes(host.id))
+                    const allHostsStandby = groupHosts.every(host => getPrinterStatus(host) === 'standby')
+                    
+                    return (
+                      <div key={group.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h4 className="font-medium">{group.name}</h4>
+                            <p className="text-sm text-gray-500">
+                              {groupHosts.length} {groupHosts.length === 1 ? 'host' : 'hosts'}
+                            </p>
+                          </div>
+                          <Button
+                            onClick={() => handleLaunchBatchTask(group)}
+                            disabled={!selectedGcodeFile || isUploading || !allHostsStandby}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            {isUploading ? (
+                              <>
+                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                {t.uploadingFiles}
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-4 w-4 mr-2" />
+                                {t.launch}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        
+                        {/* Host Status */}
+                        <div className="space-y-2">
+                          {groupHosts.map((host) => {
+                            const status = getPrinterStatus(host)
+                            const isUploadingToHost = uploadProgress[host.id]
+                            
+                            return (
+                              <div key={host.id} className="flex items-center justify-between text-sm">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{host.hostname}</span>
+                                  <span className="text-gray-500">({host.ip_address})</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {isUploadingToHost && (
+                                    <RefreshCw className="h-3 w-3 animate-spin text-blue-500" />
+                                  )}
+                                  <span className={`px-2 py-1 rounded text-xs ${
+                                    status === 'standby' 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {status}
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        
+                        {!allHostsStandby && (
+                          <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                            ⚠️ {t.hostsNotReadyMessage}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
