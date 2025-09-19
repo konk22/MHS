@@ -90,7 +90,7 @@ export const en = {
   checking: "Checking",
 
   // About Tab
-  version: "Version 0.0.52",
+  version: "Version 0.0.53",
   powerfulNetworkTool: "Network tool for discovering and managing 3D printers",
 
   // Language Tab
