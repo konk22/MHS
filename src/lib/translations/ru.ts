@@ -91,7 +91,7 @@ export const ru = {
   checking: "Проверка",
 
   // About Tab
-  version: "Версия 0.0.53",
+  version: "Версия 0.0.54",
   powerfulNetworkTool: "Сетевой инструмент для поиска и управления 3D принтерами",
   author: "Автор: Тормышев Игорь (konk22)",
   license: "Лицензия: Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)",

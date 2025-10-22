@@ -90,7 +90,7 @@ export const en = {
   checking: "Checking",
 
   // About Tab
-  version: "Version 0.0.53",
+  version: "Version 0.0.54",
   powerfulNetworkTool: "Network tool for discovering and managing 3D printers",
   author: "Author: Tormyshev Igor (konk22)",
   license: "License: Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)",
