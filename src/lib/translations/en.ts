@@ -92,6 +92,8 @@ export const en = {
   // About Tab
   version: "Version 0.0.53",
   powerfulNetworkTool: "Network tool for discovering and managing 3D printers",
+  author: "Author: Tormyshev Igor (konk22)",
+  license: "License: Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)",
 
   // Language Tab
   selectLanguage: "Select Language",

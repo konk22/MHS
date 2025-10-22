@@ -93,6 +93,8 @@ export const ru = {
   // About Tab
   version: "Версия 0.0.53",
   powerfulNetworkTool: "Сетевой инструмент для поиска и управления 3D принтерами",
+  author: "Автор: Тормышев Игорь (konk22)",
+  license: "Лицензия: Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)",
 
   // Language Tab
   selectLanguage: "Выбрать Язык",

@@ -238,9 +238,21 @@ pnpm release            # Create release with git tag
 - **Conventional commits** for commit messages
 - **Rust idioms** for backend code
 
-## License
+# Project License: CC BY-NC 4.0
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+**Author:** Tormyshev Igor (konk22)  
+**License:** Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
+
+## 📄 Terms of Use
+
+- You are free to use, study, modify, and distribute this code.  
+- **Commercial use is strictly prohibited.**  
+- You must always provide **proper credit to the author** and include a link to the license.  
+- If you modify the code, you must **indicate that changes were made**.  
+- You may not apply legal or technological measures that restrict others from exercising the rights granted by this license.
+
+Full license text:  
+👉 https://creativecommons.org/licenses/by-nc/4.0/
 
 ## Support
 

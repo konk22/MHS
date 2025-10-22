@@ -237,6 +237,11 @@ export function NetworkScanner() {
   const [newGroupName, setNewGroupName] = useState("")
   const [selectedHostsForGroup, setSelectedHostsForGroup] = useState<string[]>([])
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
+  
+  // Состояние для отслеживания недоступных подсетей и счетчиков попыток
+  const [unavailableSubnets, setUnavailableSubnets] = useState<Set<string>>(new Set())
+  const [subnetFailureCounts, setSubnetFailureCounts] = useState<Map<string, number>>(new Map())
+  const [subnetsFirstUpdateAfterRecovery, setSubnetsFirstUpdateAfterRecovery] = useState<Set<string>>(new Set())
   const [currentWebcamUrlIndex, setCurrentWebcamUrlIndex] = useState(0)
   const [webcamRotation, setWebcamRotation] = useState(0)
   const [webcamFlip, setWebcamFlip] = useState({ horizontal: false, vertical: false })
@@ -811,6 +816,25 @@ export function NetworkScanner() {
     } : h)))
   }
 
+  // Функция для проверки доступности шлюза подсети
+  const checkSubnetGatewayAvailability = async (subnetRange: string): Promise<boolean> => {
+    try {
+      // Извлекаем базовый IP из диапазона (например, 192.168.1.0 из 192.168.1.0/24)
+      const baseIP = subnetRange.split('/')[0]
+      const ipParts = baseIP.split('.')
+      
+      // Создаем тестовый IP шлюза (обычно последний октет = 1)
+      const gatewayIP = `${ipParts[0]}.${ipParts[1]}.${ipParts[2]}.1`
+      
+      // Пытаемся проверить статус шлюза
+      const result = await invokeTauri('check_host_status_command', { ip: gatewayIP })
+      
+      return result.success
+    } catch (error) {
+      console.error(`Failed to check gateway availability for subnet ${subnetRange}:`, error)
+      return false
+    }
+  }
 
   // Функция для обновления состояния хостов
   const refreshHostsStatus = async () => {
@@ -819,9 +843,99 @@ export function NetworkScanner() {
     try {
       const updatedHosts: HostInfo[] = []
       
+      // Получаем уникальные подсети из хостов
+      const hostSubnets = new Set(hosts.map(host => host.subnet))
+      const currentUnavailableSubnets = new Set(unavailableSubnets)
+      const currentFailureCounts = new Map(subnetFailureCounts)
+      
+      // Проверяем доступность шлюза каждой подсети
+      for (const subnetRange of hostSubnets) {
+        const isGatewayAvailable = await checkSubnetGatewayAvailability(subnetRange)
+        const currentFailureCount = currentFailureCounts.get(subnetRange) || 0
+        const wasUnavailable = currentUnavailableSubnets.has(subnetRange)
+        
+        if (!isGatewayAvailable) {
+          // Шлюз недоступен - увеличиваем счетчик неудач
+          const newFailureCount = currentFailureCount + 1
+          currentFailureCounts.set(subnetRange, newFailureCount)
+          
+          if (newFailureCount >= 5 && !wasUnavailable) {
+            // Пятая неудачная попытка - приостанавливаем сканирование подсети
+            currentUnavailableSubnets.add(subnetRange)
+            
+            // Находим название подсети
+            const subnetInfo = settings.subnets.find(s => s.range === subnetRange)
+            const subnetName = subnetInfo?.name || subnetRange
+            
+            // Отправляем уведомление о недоступности подсети
+            const title = `${t.networkScanner} - Подсеть недоступна`
+            const body = `Подсеть "${subnetName}" (${subnetRange}) недоступна. Хосты в этой подсети помечены как offline.`
+            
+            try {
+              await invokeTauri('send_system_notification_command', { title, body })
+            } catch (error) {
+              console.error('Failed to send subnet unavailable notification:', error)
+            }
+            
+            console.log(`Subnet ${subnetRange} (${subnetName}) gateway unavailable after ${newFailureCount} attempts, marking hosts as offline`)
+          } else if (newFailureCount < 5) {
+            console.log(`Subnet ${subnetRange} gateway unavailable (attempt ${newFailureCount}/5)`)
+          }
+        } else {
+          // Шлюз доступен - сбрасываем счетчик неудач
+          if (currentFailureCount > 0) {
+            currentFailureCounts.set(subnetRange, 0)
+            console.log(`Subnet ${subnetRange} gateway is available again, resetting failure count`)
+          }
+          
+          if (wasUnavailable) {
+            // Подсеть снова доступна - возобновляем сканирование
+            currentUnavailableSubnets.delete(subnetRange)
+            
+            // Помечаем, что следующее обновление будет первым после восстановления
+            setSubnetsFirstUpdateAfterRecovery(prev => new Set(prev).add(subnetRange))
+            
+            // Находим название подсети
+            const subnetInfo = settings.subnets.find(s => s.range === subnetRange)
+            const subnetName = subnetInfo?.name || subnetRange
+            
+            // Отправляем уведомление о доступности подсети
+            const title = `${t.networkScanner} - Подсеть доступна`
+            const body = `Подсеть "${subnetName}" (${subnetRange}) снова доступна. Сканирование хостов возобновлено.`
+            
+            try {
+              await invokeTauri('send_system_notification_command', { title, body })
+            } catch (error) {
+              console.error('Failed to send subnet available notification:', error)
+            }
+            
+            console.log(`Subnet ${subnetRange} (${subnetName}) gateway is available again, resuming host scanning`)
+          }
+        }
+      }
+      
+      // Обновляем состояние после всех проверок
+      setUnavailableSubnets(new Set(currentUnavailableSubnets))
+      setSubnetFailureCounts(new Map(currentFailureCounts))
+      
       // Обновляем хосты по одному
       for (let i = 0; i < hosts.length; i++) {
         const host = hosts[i]
+        
+        // Проверяем, доступна ли подсеть хоста
+        if (currentUnavailableSubnets.has(host.subnet)) {
+          // Подсеть недоступна - помечаем хост как offline без уведомлений
+          console.log(`Marking host ${host.hostname} as offline - subnet ${host.subnet} gateway is unavailable`)
+          
+          const updatedHost = {
+            ...host,
+            status: 'offline' as const,
+            failed_attempts: (host.failed_attempts || 0) + 1
+          }
+          
+          updatedHosts.push(updatedHost)
+          continue
+        }
         
         try {
           // Проверяем состояние хоста через Tauri API
@@ -1789,6 +1903,10 @@ export function NetworkScanner() {
                               {t.releases}
                             </Button>
                           </div>
+                        </div>
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-semibold">{t.author}</h3>
+                          <p className="text-sm text-muted-foreground">{t.license}</p>
                         </div>
                       </div>
                     </TabsContent>
